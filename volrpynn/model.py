@@ -1,6 +1,5 @@
 import numpy as np
-import pynn_utils
-import spikeprop
+from volrpynn import util
 
 class Model(object):
     """A model of a supervised neural network experiment"""

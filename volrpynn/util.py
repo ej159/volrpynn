@@ -1,4 +1,3 @@
-import pyNN
 import addict
 
 def clean_parameters(parameters):
