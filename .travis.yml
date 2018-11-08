@@ -10,7 +10,7 @@ services:
 
 before_install:
   - docker build -t volr/nest-2.16.0 -f ci/Dockerfile-nest-2.16.0 .
-  - docker run volr/nest-2.16.0 "pytest /volrpynn/test-nest"
+  - docker run volr/nest-2.16.0 pytest /volrpynn/test-nest
 
 install: pip install tox-travis
 
