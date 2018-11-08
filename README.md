@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/volr/volrpynn.svg?branch=master)](https://travis-ci.org/volr/volrpynn)
+
 # VolrPyNN
 
 A library for modelling and training spiking neural networks. The library builds
