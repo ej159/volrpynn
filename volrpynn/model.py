@@ -74,6 +74,7 @@ class Model(object):
         self.pynn.end()
         return self
 
+
 class LearningNode(object):
     """A node that can learn in the neural network, backed by a PyNN
     population."""
