@@ -8,7 +8,7 @@ from volrpynn import util
 class Model(object):
     """A model of a supervised neural network experiment"""
 
-    def __init__(self, pynn, node_input, node_output, *layers):
+    def __init__(self, pynn, *layers):
         """Instantiates the model with a PyNN implementation and a Layer description
 
         Args:
@@ -24,16 +24,19 @@ class Model(object):
         
         # Assign populations and layers
         self.pynn = pynn
-        self.node_input = node_input
-        self.node_output = node_output
+        self.node_input = layers[0].projection.pre
+        self.node_output = layers[-1].projection.post
         self.layers = layers
+
+        # Prepare recording
+        self.node_output.record('spikes')
 
         # Create input Poisson sources
         self.input_populations = []
         input_size = self.node_input.size
         for _ in range(input_size):
-            self.input_populations.append(pynn.Population(input_size,
-                pynn.SpikeSourcePoisson(rate = 1.0), label = 'input'))
+            self.input_populations.append(pynn.Population(1,
+                pynn.SpikeSourcePoisson(rate = 1.0)))
         self.input_source = pynn.Assembly(*self.input_populations)
         self.input_projection = pynn.Projection(self.input_source, self.node_input,
                 pynn.OneToOneConnector(), pynn.StaticSynapse(weight = 1.0))
@@ -91,7 +94,7 @@ class Model(object):
         # Collect spikes
         for layer in self.layers:
             layer.store_spikes()
-        output_spikes = self.node_output.getSpikes().segments[0].spiketrains
+        output_spikes = self.node_output.getSpikes().segments[-1].spiketrains
 
         self.pynn.end()
         return output_spikes

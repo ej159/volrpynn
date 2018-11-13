@@ -89,8 +89,7 @@ class Dense(Layer):
 
     def store_spikes(self):
         segments = self.projection.pre.getSpikes().segments
-        assert len(segments) == 1, "Only single compartment models supported"
-        self.spikes = segments[0].spiketrains
+        self.spikes = segments[-1].spiketrains
         return self.spikes
 
 #class MergeLayer(Layer):
