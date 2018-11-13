@@ -40,6 +40,7 @@ RUN make install
 
 ENV PATH="${PATH}:/nest-${VERSION}/bin/:/nest-${VERSION}/lib"
 ENV PYTHONPATH="/nest-${VERSION}/lib/python2.7/site-packages/"
+ENV PYTHONIOENCODING="utf8"
 
 RUN pip install --no-binary :all: PyNN
 RUN pip install mpi4py numpy scipy matplotlib addict future lazyarray neo pytest
