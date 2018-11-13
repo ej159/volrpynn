@@ -20,6 +20,12 @@ class Layer():
         pass
 
     @abc.abstractmethod
+    def restore_weights(self):
+        """Restores the current weights of the layer"""
+        self.set_weights(self.weights)
+        return self.weights
+
+    @abc.abstractmethod
     def set_weights(self, weights):
         """Sets the weights of the network layer"""
         pass
@@ -51,14 +57,11 @@ class Dense(Layer):
         self.projection = pynn.Projection(pop_in, pop_out,
                 pynn.AllToAllConnector(allow_self_connections=False))
 
-        if weights:
-            self.projection.set(weight = weights)
-        else:
-            self.projection.set(weight = 1)
+        # Assign given weights or default to 1
+        self.set_weights(weights if weights else 1)
 
         # Prepare spike recordings
         self.projection.pre.record('spikes')
-        self.weights = self.projection.get('weight', format='array')
         self.cache = numpy.repeat(1, len(self.weights))
 
     def backward(self, delta_y, optimizer):
@@ -81,8 +84,8 @@ class Dense(Layer):
         return self.weights
 
     def set_weights(self, weights):
-        assert self.weights.shape == weights.shape
-        self.weights = weights        
+        self.projection.set(weight = weights)
+        self.weights = self.projection.get('weight', format='array')
 
     def store_spikes(self):
         segments = self.projection.pre.getSpikes().segments

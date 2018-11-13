@@ -23,6 +23,7 @@ class Model(object):
         assert len(layers) > 0, "Layers must not be empty"
         
         # Assign populations and layers
+        self.pynn = pynn
         self.node_input = node_input
         self.node_output = node_output
         self.layers = layers
@@ -69,19 +70,22 @@ class Model(object):
             error = layer.backward(error, optimizer)
         return error
     
-    def predict(self, data, time):
+    def predict(self, xs, time):
         """Predicts an output by simulating the model with the given input
-        Poisson rates"""
-        self.size = node.size
-        spikes = []
-        for rates in data:
-            assert self.input_source.size == len(rates)
-            self.input_source.set(rate=rates)
-            self.simulate(time)
-            spikes.append(self.output_node.spikes)
-        return spikes
+        
+        Args:
+            xs -- A list of Poisson rates, with the same dimension as the
+                  input layer
+            time -- The number of time to run the simulation in milliseconds
+        """
+        self.set_input(xs)
+        return self.simulate(time)
 
     def simulate(self, time):
+        self.pynn.reset()
+        for layer in self.layers:
+            layer.restore_weights()
+
         self.pynn.run(time)
 
         # Collect spikes
