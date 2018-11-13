@@ -39,7 +39,7 @@ class Dense(Layer):
     """A densely connected neural layer between two populations.
        Assumes the PyNN projection is as an all-to-all connection."""
 
-    def __init__(self, pynn, pop_in, pop_out, decoder, weights=None):
+    def __init__(self, pynn, pop_in, pop_out, weights=None):
         """
         Initialises a densely connected layer between two populations
 
@@ -47,13 +47,9 @@ class Dense(Layer):
         pynn -- The PyNN backend
         pop_in -- The input population
         pop_out -- The output population
-        decoder -- The spike decoder
         weights -- Either a single number, an array of weights or a generator object.
                    Defaults all weights to 1
         """
-        assert callable(decoder), "Decoder must be a function"
-        self.decoder = decoder
-
         self.projection = pynn.Projection(pop_in, pop_out,
                 pynn.AllToAllConnector(allow_self_connections=False))
 
