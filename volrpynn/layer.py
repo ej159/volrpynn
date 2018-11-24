@@ -58,23 +58,23 @@ class Dense(Layer):
 
         # Prepare spike recordings
         self.projection.pre.record('spikes')
-        self.cache = numpy.repeat(1, len(self.weights))
 
     def backward(self, delta_y, optimizer):
+        """Backward pass in the dense layer
+
+        Args:
+        delta_y -- The error in the output from this layer
+        optimizer -- The optimizer that calculates the weight changes and the
+                     error to propagate to the next layer, given the spikes and
+                     weights from this layer
+        """
         assert callable(optimizer), "Optimizer must be a function"
-
-        decoded = self.decode(self.spikes) # Decode spike values
-        # Calculate weight changes
-        delta = numpy.multiply(decoded, delta_y).T # Element-wise (hadamard)
-        weight_gradient = numpy.dot(delta, decoded)
-        sum_vectorize = numpy.vectorize(lambda xs: numpy.sum(xs))
-        cache_gradient = sum_vectorize(delta)
-
-        # Update weights and cache
-        self.weights, self.cache = optimizer(self.weight, self.cache, weight_gradient, cache_gradient)
+  
+        # Calculate weight changes and update
+        self.weights, error = optimizer(self.spikes, self.weight) 
         
         # Return error changes in backwards layer
-        return numpy.dot(self.weights.T, delta_y).T
+        return error
 
     def get_weights(self):
         return self.weights

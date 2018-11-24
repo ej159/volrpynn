@@ -44,3 +44,5 @@ def test_nest_dense_restore():
     assert numpy.array_equal(d.projection.get('weight', format='array'),
             numpy.ones((12, 10)) * -1)
 
+#def test_nest_dense_backprop():
+

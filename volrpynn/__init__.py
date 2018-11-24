@@ -7,6 +7,10 @@ models in PyNN.
 """
 
 # Import VolrPyNN 
+from . import activation
+from .activation import *
+from . import optimise
+from .optimise import *
 from . import layer
 from .layer import *
 from . import model
