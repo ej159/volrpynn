@@ -64,6 +64,28 @@ class Model(object):
         self.set_input(xs)
         return self.simulate(time)
 
+    def backward(self, error, loss_update):
+        """Performs a backwards pass through the model *without* executing the
+        simulation, which is assumed to happen *before* this method is called.
+        This function has side-effects: while performing the backward pass,
+        the model is updated with new weights.
+
+        Args:
+        error -- The numerical error that the model should adjust to
+        loss_update -- A function that updates a given layer according to some
+                       optimisation algorithm. The function is expected to take
+                       the error to adjust to and a single layer, returning
+                       a tuple of (weights, error)
+
+        Returns:
+        The error (loss) from the input layer when backpropagated from the output
+        layer.
+        """
+        loss = numpy.copy(error)
+        for layer in reversed(self.layer):
+            loss = layer.backward(loss, loss_update)
+        return loss
+
     def simulate(self, time):
         self.pynn.reset()
         for layer in self.layers:

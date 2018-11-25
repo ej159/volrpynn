@@ -45,14 +45,15 @@ class GradientDescentOptimiser(Optimiser):
     """
     
     def __init__(self, learning_rate):
-        """Constructs a gradient descent optimizer given a learning rate
+        """Constructs a gradient descent optimiser given a learning rate
     
         Args:
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
         """
+        self.learning_rate = learning_rate
 
-    def train(model, xs, ys, loss_function):
+    def train(self, model, xs, ys, loss_function, backward_function):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output {}
                must be the same as output data ({})""".format(len(xs), len(ys))
 
@@ -61,8 +62,7 @@ class GradientDescentOptimiser(Optimiser):
             target_y = ys[index]
             y = model.predict(x)
             loss = loss_function(x, y)
-        
-            for layer in reversed(self.layer):
-                loss = layer.backward(error, optimizer)
+            model.backward(loss, backward_function)
+            
         return model
 
