@@ -32,7 +32,7 @@ class Optimiser():
                          output is, compared to the y labels
 
         Returns:
-        A trained model
+        A tuple of a trained Model and a list of error rates
         """
         pass
 
@@ -71,8 +71,8 @@ class GradientDescentOptimiser(Optimiser):
         """
         def backward(spiketrains, weights, errors):
             output = self.decoder(spiketrains)
-            weight_deltas, errors_new = backward_function(output, weights, errors)
-            return weight_deltas * learning_rate, errors_new
+            weight_deltas, errors_new = activation_derived(output, weights, errors)
+            return weight_deltas * self.learning_rate, errors_new
         return backward
 
     def train(self, model, xs, ys, error_function, activation):
@@ -83,10 +83,12 @@ class GradientDescentOptimiser(Optimiser):
 
         composed_backward = self.compose_learning_rate(activation)
 
+        errors = []
         for x, target_y in zip(xs, ys):
-            y = model.predict(x)
+            y = model.predict(x, 200)
             error = error_function(self.decoder(y), target_y)
+            errors.append(error.sum())
             model.backward(error, composed_backward)
             
-        return model
+        return model, errors
 

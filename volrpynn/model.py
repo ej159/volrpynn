@@ -81,8 +81,8 @@ class Model(object):
         The error (loss) from the input layer when backpropagated from the output
         layer.
         """
-        loss = numpy.copy(error)
-        for layer in reversed(self.layer):
+        loss = np.copy(error)
+        for layer in reversed(self.layers):
             loss = layer.backward(loss, loss_update)
         return loss
 
