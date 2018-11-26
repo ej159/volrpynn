@@ -11,8 +11,9 @@ class Layer():
        weight-update function, based on existing spikes"""
 
     @abc.abstractmethod
-    def backward(self, optimizer):
-        """Performs backwards optimisation based on the given optimizer"""
+    def backward(self, error, activation):
+        """Performs backwards optimisation based on the given error and
+        activation derivative"""
         pass
 
     @abc.abstractmethod
@@ -59,22 +60,22 @@ class Dense(Layer):
         # Prepare spike recordings
         self.projection.pre.record('spikes')
 
-    def backward(self, error, optimiser):
+    def backward(self, errors, activation):
         """Backward pass in the dense layer
 
         Args:
-        error -- The error in the output from this layer
-        optimiser -- The optimiser that calculates the weight changes and the
-                     error to propagate to the next layer, given the error, spikes and
-                     weights from this layer
+        errors -- The errors in the output from this layer
+        activation -- The derived activation function that calculates the weight changes
+                      and the error to propagate to the next layer, given the error,
+                      spikes and weights from this layer
         """
-        assert callable(optimiser), "Optimiser must be a function"
+        assert callable(activation), "Activation must be a function"
   
         # Calculate weight changes and update
-        self.weights, error = optimiser(error, self)
+        self.weights, errors = activation(self.spikes, self.weights, errors)
         
-        # Return error changes in backwards layer
-        return error
+        # Return errors changes in backwards layer
+        return errors
 
     def get_weights(self):
         return self.weights

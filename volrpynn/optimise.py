@@ -4,10 +4,8 @@ based on stimulus and expected output
 """
 
 import abc
-import volrpynn.activation
 import numpy
-
-import numpy
+from volrpynn import *
 
 class Optimiser():
     """An optimizer that, given a model, can train it to perform better on a
@@ -44,25 +42,51 @@ class GradientDescentOptimiser(Optimiser):
        with a given learning rate
     """
     
-    def __init__(self, learning_rate):
+    def __init__(self, decoder, learning_rate):
         """Constructs a gradient descent optimiser given a learning rate
     
         Args:
+        decoder -- A decoder that can decode a list of SpikeTrains to a list of
+                   numerical values for use in error and backpropagation
+                   functions
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
         """
+        assert callable(decoder)
+        self.decoder = decoder
         self.learning_rate = learning_rate
 
-    def train(self, model, xs, ys, loss_function, backward_function):
+    def compose_learning_rate(self, activation_derived):
+        """Composes a backward pass function with the gradient descent
+           algorithm, to scale the weight changes by the learning rate
+           
+        Args:
+        activation_derived -- The derived activation function that takes
+                              numerical errors as its input and outputs
+                              weight changes and numerical errors for further
+                              backpropagation
+
+        Returns:
+        A function that inputs returns the weight changes graded by the learning rate
+        """
+        def backward(spiketrains, weights, errors):
+            output = self.decoder(spiketrains)
+            weight_deltas, errors_new = backward_function(output, weights, errors)
+            return weight_deltas * learning_rate, errors_new
+        return backward
+
+    def train(self, model, xs, ys, error_function, activation):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output {}
                must be the same as output data ({})""".format(len(xs), len(ys))
+        assert callable(error_function), "Error function must be callable"
+        assert callable(activation), "Activation function must be callable"
 
-        for index in range(len(xs)):
-            x = xs[index]
-            target_y = ys[index]
+        composed_backward = self.compose_learning_rate(activation)
+
+        for x, target_y in zip(xs, ys):
             y = model.predict(x)
-            loss = loss_function(x, y)
-            model.backward(loss, backward_function)
+            error = error_function(self.decoder(y), target_y)
+            model.backward(error, composed_backward)
             
         return model
 
