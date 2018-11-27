@@ -6,7 +6,7 @@ class TestModel():
     def __init__(self):
         self.called_predict = 0
         self.called_backward = 0
-    def predict(self, x):
+    def predict(self, x, t):
         self.called_predict += 1
         return x
     def backward(self, error, backwards):
