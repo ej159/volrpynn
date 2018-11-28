@@ -59,20 +59,20 @@ class Dense(Layer):
 
         # Prepare spike recordings
         self.projection.pre.record('spikes')
-
-    def backward(self, errors, activation):
+        
+    def backward(self, errors, update):
         """Backward pass in the dense layer
 
         Args:
         errors -- The errors in the output from this layer
-        activation -- The derived activation function that calculates the weight changes
-                      and the error to propagate to the next layer, given the error,
-                      spikes and weights from this layer
+        update -- The update function that calculates the weight changes
+                  and the error to propagate to the next layer, given the error,
+                  spikes and weights from this layer
         """
-        assert callable(activation), "Activation must be a function"
+        assert callable(update), "Activation must be a function"
   
         # Calculate weight changes and update
-        self.weights, errors = activation(self.spikes, self.weights, errors)
+        self.weights, errors = update(self.spikes, self.weights, errors)
         
         # Return errors changes in backwards layer
         return errors
@@ -85,7 +85,7 @@ class Dense(Layer):
         self.weights = self.projection.get('weight', format='array')
 
     def store_spikes(self):
-        segments = self.projection.pre.getSpikes().segments
+        segments = self.projection.pre.get_data('spikes').segments
         self.spikes = segments[-1].spiketrains
         return self.spikes
 

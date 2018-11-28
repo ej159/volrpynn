@@ -10,8 +10,8 @@ def test_gradient_descent_optimiser():
     l = v.Dense(pynn, p1, p2)
     model = v.Model(pynn, l)
     optimiser = v.GradientDescentOptimiser(v.spike_softmax, 0.1)
-    error = v.SumSquaredError().error
-    xs = np.array([[1, 0], [0.5, 1], [0, 0]])
-    ys = np.array([1, 0, 0])
+    error = v.sum_squared_error
+    xs = np.array([[1, 0], [0, 1], [1, 0]])
+    ys = np.array([1, 0, 1])
     m, e = optimiser.train(model, xs, ys, error, v.relu_derived)
-    assert np.allclose(e, np.array([0, 1, 1]))
+    assert np.allclose(e, np.array([0, 1, 0]))

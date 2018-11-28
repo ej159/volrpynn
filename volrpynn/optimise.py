@@ -72,7 +72,8 @@ class GradientDescentOptimiser(Optimiser):
         def backward(spiketrains, weights, errors):
             output = self.decoder(spiketrains)
             weight_deltas, errors_new = activation_derived(output, weights, errors)
-            return weight_deltas * self.learning_rate, errors_new
+            weights_new = weights - (weight_deltas * self.learning_rate)
+            return weights_new, errors_new
         return backward
 
     def train(self, model, xs, ys, error_function, activation):
@@ -85,7 +86,7 @@ class GradientDescentOptimiser(Optimiser):
 
         errors = []
         for x, target_y in zip(xs, ys):
-            y = model.predict(x, 200)
+            y = model.predict(x, 1000)
             error = error_function(self.decoder(y), target_y)
             errors.append(error.sum())
             model.backward(error, composed_backward)
