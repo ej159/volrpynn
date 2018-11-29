@@ -16,7 +16,7 @@ class TestModel():
 def test_gradient_descent_optimiser():
     model = TestModel()
     optimiser = v.GradientDescentOptimiser(lambda x: x, 0.1)
-    error = v.SumSquaredError().error
+    error = v.sum_squared_error
     xs = np.zeros((10, 2))
     ys = np.zeros((10, 1))
     optimiser.train(model, xs, ys, error, v.relu_derived)

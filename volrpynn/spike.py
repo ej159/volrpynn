@@ -14,7 +14,7 @@ def spike_softmax(spiketrains):
     lengths = numpy.array(list(map(len, spiketrains)))
     shifted = lengths - numpy.max(lengths)
     e_x = numpy.exp(shifted)
-    return numpy.diag(e_x / e_x.sum(axis = 0))
+    return (e_x / e_x.sum(axis = 0))
 
 def spike_softmax_deriv(spiketrains):
     """Returns a function that can calculate the derived spike train rate with

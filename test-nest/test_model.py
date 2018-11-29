@@ -66,8 +66,7 @@ def test_nest_model_multilayer():
     l2 = v.Dense(pynn, p2, p3)
     m = v.Model(pynn, l1, l2)
     optimiser = v.GradientDescentOptimiser(v.spike_softmax, 0.1)
-    error = v.sum_squared_error
     xs = np.array([[1, 0], [0, 1], [1, 0]])
     ys = np.array([1, 0, 1])
-    _, e = optimiser.train(m, xs, ys, error, v.relu_derived)
+    _, e = optimiser.train(m, xs, ys, v.sum_squared_error, v.relu_derived)
     assert np.allclose(e, np.array([0, 1, 0]))

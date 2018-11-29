@@ -58,7 +58,7 @@ class Dense(Layer):
         self.set_weights(weights if weights else 1)
 
         # Prepare spike recordings
-        self.projection.pre.record('spikes')
+        self.projection.post.record('spikes')
         
     def backward(self, errors, update):
         """Backward pass in the dense layer
@@ -85,7 +85,7 @@ class Dense(Layer):
         self.weights = self.projection.get('weight', format='array')
 
     def store_spikes(self):
-        segments = self.projection.pre.get_data('spikes').segments
+        segments = self.projection.post.get_data('spikes').segments
         self.spikes = segments[-1].spiketrains
         return self.spikes
 

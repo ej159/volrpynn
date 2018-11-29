@@ -72,13 +72,13 @@ class GradientDescentOptimiser(Optimiser):
         def backward(spiketrains, weights, errors):
             output = self.decoder(spiketrains)
             weight_deltas, errors_new = activation_derived(output, weights, errors)
-            weights_new = weights - (weight_deltas * self.learning_rate)
+            weights_new = weights - (np.multiply(weight_deltas, self.learning_rate))
             return weights_new, errors_new
         return backward
 
     def train(self, model, xs, ys, error_function, activation):
-        assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output {}
-               must be the same as output data ({})""".format(len(xs), len(ys))
+        assert len(xs) == len(ys),  """Length of input data ({}) \
+must be the same as output data ({})""".format(len(xs), len(ys))
         assert callable(error_function), "Error function must be callable"
         assert callable(activation), "Activation function must be callable"
 
@@ -86,7 +86,7 @@ class GradientDescentOptimiser(Optimiser):
 
         errors = []
         for x, target_y in zip(xs, ys):
-            y = model.predict(x, 1000)
+            y = model.predict(x, 1000) # TODO: Avoid hardcoded simulation time 
             error = error_function(self.decoder(y), target_y)
             errors.append(error.sum())
             model.backward(error, composed_backward)

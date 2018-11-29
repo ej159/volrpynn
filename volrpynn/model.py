@@ -72,17 +72,18 @@ class Model(object):
 
         Args:
         error -- The numerical error that the model should adjust to
-        error_update -- A function that updates a given layer according to some
-                        optimisation algorithm. The function is expected to take
-                        the layer spikes, weights and the error to adjust to.
-                        It is expected to return a tuple of (weights, error)
+        error_update -- A function that calculates weight delta and backward
+                        errors according to some optimisation algorithm.
+                        The function is expected to take the layer spikes,
+                        weights and the error to adjust to. It is expected to
+                        return a tuple of (weight deltas, errors).
 
         Returns:
-        The error (loss) from the input layer when backpropagated from the output
-        layer.
+        The error (loss) from the input layer after backpropagation from the output
+        layer to the input layer.
         """
-        # First calculate output error
-        layer_error = error
+        layer_error = np.copy(error)
+        # Backprop through the layers
         for layer in reversed(self.layers):
             layer_error = layer.backward(layer_error, error_update)
         return layer_error

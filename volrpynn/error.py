@@ -6,4 +6,4 @@ import numpy
 import volrpynn.activation
 
 def sum_squared_error(output, labels):
-        return ((output - labels) ** 2)
+    return ((output.T - labels) ** 2).T

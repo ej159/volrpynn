@@ -12,6 +12,6 @@ def test_gradient_descent_optimiser():
     optimiser = v.GradientDescentOptimiser(v.spike_softmax, 0.1)
     error = v.sum_squared_error
     xs = np.array([[1, 0], [0, 1], [1, 0]])
-    ys = np.array([1, 0, 1])
+    ys = np.array([[1], [0], [1]])
     m, e = optimiser.train(model, xs, ys, error, v.relu_derived)
     assert np.allclose(e, np.array([0, 1, 0]))
