@@ -5,7 +5,7 @@ storing weights.
 """
 import abc
 import numpy as np
-from spike import spike_softmax
+from volrpynn.spike import spike_softmax
 
 class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
