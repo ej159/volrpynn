@@ -64,7 +64,7 @@ class Model(object):
         self.set_input(xs)
         return self.simulate(time)
 
-    def backward(self, error, error_update):
+    def backward(self, error, optimiser):
         """Performs a backwards pass through the model *without* executing the
         simulation, which is assumed to happen *before* this method is called.
         This function has side-effects: while performing the backward pass,
@@ -72,11 +72,9 @@ class Model(object):
 
         Args:
         error -- The numerical error that the model should adjust to
-        error_update -- A function that calculates weight delta and backward
-                        errors according to some optimisation algorithm.
-                        The function is expected to take the layer spikes,
-                        weights and the error to adjust to. It is expected to
-                        return a tuple of (weight deltas, errors).
+        optimiser -- A function that calculates the new weights of a layer
+                     given the current layer weights and the weights deltas
+                     from the derived layer activation function
 
         Returns:
         The error (loss) from the input layer after backpropagation from the output
@@ -85,7 +83,7 @@ class Model(object):
         layer_error = np.copy(error)
         # Backprop through the layers
         for layer in reversed(self.layers):
-            layer_error = layer.backward(layer_error, error_update)
+            layer_error = layer.backward(layer_error, optimiser)
         return layer_error
 
     def simulate(self, time):

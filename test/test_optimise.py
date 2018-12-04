@@ -19,6 +19,6 @@ def test_gradient_descent_optimiser():
     error = v.sum_squared_error
     xs = np.zeros((10, 2))
     ys = np.zeros((10, 1))
-    optimiser.train(model, xs, ys, error, v.relu_derived)
+    optimiser.train(model, xs, ys, error)
     assert model.called_predict == 10
     assert model.called_backward == 10

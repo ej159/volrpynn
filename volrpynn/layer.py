@@ -4,7 +4,7 @@ through the layers (to update the layer weights), as well as getting, setting an
 storing weights.
 """
 import abc
-import numpy
+import numpy as np
 
 class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
@@ -40,7 +40,7 @@ class Dense(Layer):
     """A densely connected neural layer between two populations.
        Assumes the PyNN projection is as an all-to-all connection."""
 
-    def __init__(self, pynn, pop_in, pop_out, weights=None):
+    def __init__(self, pynn, pop_in, pop_out, gradient_model, weights=None):
         """
         Initialises a densely connected layer between two populations
 
@@ -48,34 +48,45 @@ class Dense(Layer):
         pynn -- The PyNN backend
         pop_in -- The input population
         pop_out -- The output population
+        gradient_model -- The function that calculates the neuron gradients
+                          given the current spikes and errors from this layer
         weights -- Either a single number, an array of weights or a generator object.
                    Defaults all weights to 1
         """
         self.projection = pynn.Projection(pop_in, pop_out,
                 pynn.AllToAllConnector(allow_self_connections=False))
 
+        # Store gradient model
+        assert callable(gradient_model), "gradient_model must be a function"
+        self.gradient_model = gradient_model
+
         # Assign given weights or default to 1
         self.set_weights(weights if weights else 1)
 
         # Prepare spike recordings
         self.projection.post.record('spikes')
+
         
-    def backward(self, errors, update):
+    def backward(self, errors, optimiser):
         """Backward pass in the dense layer
 
         Args:
         errors -- The errors in the output from this layer
-        update -- The update function that calculates the weight changes
-                  and the error to propagate to the next layer, given the error,
-                  spikes and weights from this layer
+        optimiser -- The optimiser that calculates the new layer weights, given
+                     the current weights and the gradient deltas
         """
-        assert callable(update), "Activation must be a function"
+        assert callable(optimiser), "Optimiser must be callable"
+
+        # Activation gradient
+        gradient = self.gradient_model(self.spikes, errors)
   
         # Calculate weight changes and update
-        self.weights, errors = update(self.spikes, self.weights, errors)
+        layer_delta = np.multiply(weights.T, gradient).T
+        new_weights = optimiser(self.weights, layer_delta)
+        self.set_weights(new_weights)
         
         # Return errors changes in backwards layer
-        return errors
+        return layer_delta
 
     def get_weights(self):
         return self.weights

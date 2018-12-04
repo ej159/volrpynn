@@ -56,40 +56,21 @@ class GradientDescentOptimiser(Optimiser):
         self.decoder = decoder
         self.learning_rate = learning_rate
 
-    def compose_learning_rate(self, activation_derived):
-        """Composes a backward pass function with the gradient descent
-           algorithm, to scale the weight changes by the learning rate
-           
-        Args:
-        activation_derived -- The derived activation function that takes
-                              numerical errors as its input and outputs
-                              weight changes and numerical errors for further
-                              backpropagation
-
-        Returns:
-        A function that inputs returns the weight changes graded by the learning rate
-        """
-        def backward(spiketrains, weights, errors):
-            output = self.decoder(spiketrains)
-            weight_deltas, errors_new = activation_derived(output, weights, errors)
-            weights_new = weights - (np.multiply(weight_deltas, self.learning_rate))
-            return weights_new, errors_new
-        return backward
-
-    def train(self, model, xs, ys, error_function, activation):
+    def train(self, model, xs, ys, error_function):
         assert len(xs) == len(ys),  """Length of input data ({}) \
 must be the same as output data ({})""".format(len(xs), len(ys))
         assert callable(error_function), "Error function must be callable"
-        assert callable(activation), "Activation function must be callable"
 
-        composed_backward = self.compose_learning_rate(activation)
+        # Define update function
+        def calculate_weights(weights, deltas):
+            return weights - (np.multiply(self.learning_weights, deltas))
 
         errors = []
         for x, target_y in zip(xs, ys):
             y = model.predict(x, 1000) # TODO: Avoid hardcoded simulation time 
             error = error_function(self.decoder(y), target_y)
             errors.append(error.sum())
-            model.backward(error, composed_backward)
+            model.backward(error, calculate_weights)
             
         return model, errors
 
