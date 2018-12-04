@@ -5,6 +5,7 @@ storing weights.
 """
 import abc
 import numpy as np
+from spike import spike_softmax
 
 class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
@@ -40,7 +41,8 @@ class Dense(Layer):
     """A densely connected neural layer between two populations.
        Assumes the PyNN projection is as an all-to-all connection."""
 
-    def __init__(self, pynn, pop_in, pop_out, gradient_model, weights=None):
+    def __init__(self, pynn, pop_in, pop_out, gradient_model, weights=None,
+            decoder=spike_softmax):
         """
         Initialises a densely connected layer between two populations
 
@@ -52,6 +54,8 @@ class Dense(Layer):
                           given the current spikes and errors from this layer
         weights -- Either a single number, an array of weights or a generator object.
                    Defaults all weights to 1
+        decoder -- A function that can code a list of SpikeTrains into a numeric
+                   numpy array
         """
         self.projection = pynn.Projection(pop_in, pop_out,
                 pynn.AllToAllConnector(allow_self_connections=False))
@@ -59,6 +63,10 @@ class Dense(Layer):
         # Store gradient model
         assert callable(gradient_model), "gradient_model must be a function"
         self.gradient_model = gradient_model
+
+        # Store decoder
+        assert callable(decoder), "spike decoder must be a function"
+        self.decoder = decoder
 
         # Assign given weights or default to 1
         self.set_weights(weights if weights else 1)
@@ -78,15 +86,16 @@ class Dense(Layer):
         assert callable(optimiser), "Optimiser must be callable"
 
         # Activation gradient
-        gradient = self.gradient_model(self.spikes, errors)
+        error_gradient = self.gradient_model(self.decoder(self.spikes), errors)
   
         # Calculate weight changes and update
-        layer_delta = np.multiply(weights.T, gradient).T
+        layer_delta = np.multiply(self.weights, error_gradient)
         new_weights = optimiser(self.weights, layer_delta)
         self.set_weights(new_weights)
         
         # Return errors changes in backwards layer
-        return layer_delta
+        error_weighted = np.matmul(layer_delta, error_gradient)
+        return error_weighted
 
     def get_weights(self):
         return self.weights

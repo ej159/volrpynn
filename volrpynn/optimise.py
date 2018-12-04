@@ -57,13 +57,12 @@ class GradientDescentOptimiser(Optimiser):
         self.learning_rate = learning_rate
 
     def train(self, model, xs, ys, error_function):
-        assert len(xs) == len(ys),  """Length of input data ({}) \
-must be the same as output data ({})""".format(len(xs), len(ys))
+        assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
         assert callable(error_function), "Error function must be callable"
 
         # Define update function
         def calculate_weights(weights, deltas):
-            return weights - (np.multiply(self.learning_weights, deltas))
+            return weights - (np.multiply(self.learning_rate, deltas))
 
         errors = []
         for x, target_y in zip(xs, ys):

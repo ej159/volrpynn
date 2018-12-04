@@ -11,7 +11,6 @@ def test_relu_derived():
 def test_relu_derived_dimension_augment():
     out = np.ones((2, 1))
     error = np.ones(1)
-    weights = np.ones((2, 1))
     g = v.relu_derived(out, error)
     assert g.shape == (2,1)
 
