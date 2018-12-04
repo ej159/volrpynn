@@ -10,11 +10,18 @@ def test_softmax_spike():
     expected = np.array([0.5, 0.5])
     assert np.allclose(v.spike_softmax(trains), expected)
 
-def test_softmax_spike_deriv():
+def test_spike_argmax_randomised():
     train1 = SpikeTrain([3, 4] * s, t_stop = 10)
     train2 = SpikeTrain([5, 6] * s, t_stop = 10)
     trains = np.array([train1, train2])
-    ret = v.spike_softmax_deriv(trains)
-    assert callable(ret)
-    expected = np.array([-0.25, 0.25])
-    assert np.allclose(ret(1), expected)
+    out = v.spike_argmax(trains)
+    assert out.size == len(trains)
+    assert out.sum() == 1
+
+def test_spike_argmax_indexed():
+    train1 = SpikeTrain([3, 4] * s, t_stop = 10)
+    train2 = SpikeTrain([5, 6] * s, t_stop = 10)
+    trains = np.array([train1, train2])
+    out = v.spike_argmax(trains)
+    expected = np.array([1, 0])
+    assert np.array_equal(out, expected)
