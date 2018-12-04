@@ -48,7 +48,10 @@ def test_nest_dense_backprop():
     p1 = pynn.Population(12, pynn.IF_cond_exp())
     p2 = pynn.Population(10, pynn.IF_cond_exp())
     l = v.Dense(pynn, p1, p2, v.relu_derived, weights = 2)
+    old_weights = l.get_weights()
     l.spikes = np.zeros((10, 1)) # Mock spikes
-    update = lambda w, g: w
-    errors = l.backward(np.zeros((10)), update)
-    assert np.array_equal(errors, np.zeros((12, )))
+    errors = l.backward(np.ones((10)), lambda w, g: w - g)
+    expected_errors = np.zeros((12,)) + 0.2
+    assert np.allclose(errors, expected_errors)
+    expected_weights = old_weights - 0.2
+    assert np.allclose(l.get_weights(), expected_weights)

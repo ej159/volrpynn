@@ -13,7 +13,7 @@ class Optimiser():
     """
 
     @abc.abstractmethod
-    def train(model, x, y, loss_function):
+    def train(self, model, x, y, loss_function):
         """Trains the given model using the input data as input and the output 
         data as target (expected) output, using a specific loss function
         
@@ -32,7 +32,7 @@ class Optimiser():
                          output is, compared to the y labels
 
         Returns:
-        A tuple of a trained Model and a list of error rates
+        A tuple of a trained Model and a list of predicted outputs
         """
         pass
 
@@ -42,7 +42,7 @@ class GradientDescentOptimiser(Optimiser):
        with a given learning rate
     """
     
-    def __init__(self, decoder, learning_rate):
+    def __init__(self, decoder, learning_rate, simulation_time = 500):
         """Constructs a gradient descent optimiser given a learning rate
     
         Args:
@@ -51,10 +51,18 @@ class GradientDescentOptimiser(Optimiser):
                    functions
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
+        simulation_time -- Time in milliseconds how long each data point
+                           be simulated
         """
         assert callable(decoder)
         self.decoder = decoder
         self.learning_rate = learning_rate
+        self.simulation_time = simulation_time
+
+    def test(self, model, xs, ys):
+        errors = []
+        for x, y in zip(xs, ys):
+            model.predict(xs)
 
     def train(self, model, xs, ys, error_function):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
@@ -64,12 +72,11 @@ class GradientDescentOptimiser(Optimiser):
         def calculate_weights(weights, deltas):
             return weights - (np.multiply(self.learning_rate, deltas))
 
-        errors = []
+        actual = []
         for x, target_y in zip(xs, ys):
-            y = model.predict(x, 1000) # TODO: Avoid hardcoded simulation time 
+            y = model.predict(x, self.simulation_time)
+            actual.append(self.decoder(y))
             error = error_function(self.decoder(y), target_y)
-            errors.append(error.sum())
             model.backward(error, calculate_weights)
             
-        return model, errors
-
+        return model, actual

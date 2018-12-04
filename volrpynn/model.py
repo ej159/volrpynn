@@ -87,7 +87,10 @@ class Model(object):
         return layer_error
 
     def simulate(self, time):
+        # Reset simulation and restore weights
         self.pynn.reset()
+        for layer in self.layers:
+            layer.restore_weights()
 
         self.pynn.run(time)
 

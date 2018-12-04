@@ -47,7 +47,7 @@ def test_nest_create_input_populations():
     assert m.input_populations[0].get('rate') == 1.0
     assert m.input_populations[1].get('rate') == 0.2
 
-def test_nest_predict():
+def test_nest_model_predict_active():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
     d = pynn.random.RandomDistribution('normal', mu=1, sigma=0.1)
@@ -58,15 +58,26 @@ def test_nest_predict():
     assert len(out[0]) > 0
     assert len(out[1]) > 0 # Should be above 0 despite 0 input, due to all-to-all
 
-def test_nest_model_multilayer():
+def test_nest_model_predict_inactive():
+    p1 = pynn.Population(2, pynn.IF_cond_exp())
+    p2 = pynn.Population(2, pynn.IF_cond_exp())
+    d = pynn.random.RandomDistribution('normal', mu=1, sigma=0.1)
+    l = v.Dense(pynn, p1, p2, v.relu_derived, weights = d)
+    m = v.Model(pynn, l)
+    out = m.predict(np.array([0, 0]), 1000)
+    assert len(out) == 2
+    assert len(out[0]) == 0
+    assert len(out[1]) == 0 # Should be above 0 despite 0 input, due to all-to-all
+
+def test_nest_model_backwards():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(3, pynn.IF_cond_exp())
-    p3 = pynn.Population(1, pynn.IF_cond_exp())
     l1 = v.Dense(pynn, p1, p2, v.relu_derived)
-    l2 = v.Dense(pynn, p2, p3, v.relu_derived)
-    m = v.Model(pynn, l1, l2)
-    optimiser = v.GradientDescentOptimiser(v.spike_softmax, 0.1)
-    xs = np.array([[1, 0], [0, 1], [1, 0]])
-    ys = np.array([1, 0, 1])
-    _, e = optimiser.train(m, xs, ys, v.sum_squared_error)
-    assert np.allclose(e, np.array([0, 1, 0]))
+    m = v.Model(pynn, l1)
+    xs = np.array([1, 0])
+    ys = np.array([1, 0])
+    spikes = m.predict(xs, 500)
+    out = m.backward(np.array([1, 0, 0]), lambda w, g: w - g)
+    expected_weights = np.array([[2/3.0, 1, 1], [2/3.0, 1, 1]])
+    assert np.allclose(l1.get_weights(), expected_weights)
+    assert np.allclose(out, np.array([0.1111111, 0.1111111]))

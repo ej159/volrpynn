@@ -33,17 +33,18 @@ def spike_argmax(spiketrains, randomise_ties=True):
     """
     lengths = np.array(list(map(len, spiketrains)))
     max_value = lengths.max()
+    max_array = np.zeros(lengths.shape)
+
     if max_value == 0:
-        non_zero_indices = np.arange(len(lenghts))
-    else:
-        non_zero_indices = np.flatnonzero(lengths == lengths.max())
+        return np.zeros(lengths.shape)
+    
+    non_zero_indices = np.flatnonzero(lengths == max_value)
 
     if randomise_ties:
         max_index = np.random.choice(non_zero_indices)
     else:
         max_index = non_zero_indices[0]
        
-    max_array = np.zeros(lengths.shape)
     max_array[max_index] = 1
 
     return max_array
