@@ -33,7 +33,7 @@ RUN mkdir nest-simulator-v${VERSION}-build
 RUN cd nest-simulator-v${VERSION}-build
 WORKDIR /nest-simulator-v${VERSION}-build
 RUN cmake -DCMAKE_INSTALL_PREFIX:PATH=../nest-${VERSION}/ ../nest-simulator-${VERSION} # -Dwith-music=../music-${2//v}/ -Dwith-mpi=ON
-RUN make -j8
+RUN make -j12
 RUN make install
 # This test fails because it can't properly spawn daemons
 #RUN make installcheck # check integrity of nest install

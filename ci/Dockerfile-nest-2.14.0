@@ -21,11 +21,10 @@ RUN apt-get update && apt-get install -y \
      libgsl-dev \
      libopenmpi-dev \
      ssh \
+     git \
      python-pip \
      python-tk && \
      rm -rf /var/lib/apt/lists/*
-
-RUN pip install mpi4py pynn numpy scipy matplotlib addict future elephant lazyarray
 
 RUN wget https://github.com/nest/nest-simulator/archive/v${VERSION}.tar.gz
 RUN tar xf v${VERSION}.tar.gz
@@ -33,25 +32,30 @@ RUN mkdir nest-simulator-v${VERSION}-build
 RUN cd nest-simulator-v${VERSION}-build
 WORKDIR /nest-simulator-v${VERSION}-build
 RUN cmake -DCMAKE_INSTALL_PREFIX:PATH=../nest-${VERSION}/ ../nest-simulator-${VERSION} # -Dwith-music=../music-${2//v}/ -Dwith-mpi=ON
-RUN make -j8
+RUN make -j12
 RUN make install
 # This test fails because it can't properly spawn daemons
 #RUN make installcheck # check integrity of nest install
 
-# remove intermediate files
+ENV PATH="${PATH}:/nest-${VERSION}/bin/"
+ENV PYTHONPATH="/nest-${VERSION}/lib/python2.7/site-packages/"
+ENV PYTHONIOENCODING="utf8"
+
+RUN pip install --no-binary :all: PyNN
+RUN pip install mpi4py numpy scipy matplotlib addict future elephant lazyarray neo pytest
+
+# Install volrpynn
+COPY . /volrpynn
+RUN pip install -e /volrpynn
+
+# remove redundant files
 RUN rm /v${VERSION}.tar.gz
 RUN rm -rf /nest-simulator-v${VERSION}-build
 RUN rm -rf /nest-simulator-${VERSION}
 
-ENV PATH="${PATH}:/nest-${VERSION}/bin/"
-ENV PYTHONPATH="/nest-${VERSION}/lib/python2.7/site-packages/"
-
 # Prepare working environment
 RUN mkdir /data
 WORKDIR /root
-COPY python/ /myelin
 VOLUME ["/data"]
 
-ENTRYPOINT ["python", "/myelin/executor.py", "nest"]
-
-CMD ["--help"]
+CMD ["python"]
