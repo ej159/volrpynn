@@ -46,6 +46,6 @@ def test_spike_argmax_indexed():
     train1 = SpikeTrain([3, 4] * s, t_stop = 10)
     train2 = SpikeTrain([5, 6] * s, t_stop = 10)
     trains = np.array([train1, train2])
-    out = v.spike_argmax(trains)
+    out = v.spike_argmax(trains, randomise_ties = False)
     expected = np.array([1, 0])
     assert np.array_equal(out, expected)
