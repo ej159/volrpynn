@@ -95,14 +95,14 @@ def test_nest_model_backwards_reset():
     ys2 = np.array([0, 1])
     # First pass
     target1 = m.predict(xs1, 1000)
-    error_out = m.backward(ys1, lambda w, g: w - g)
-    assert np.allclose(error_out, np.array([0.25, 0.25]))
+    out = m.backward(ys1, lambda w, g: w - g)
+    assert np.allclose(out, np.array([0.25, 0.25]))
     expected_weights = np.array([[1, 0.5], [1, 0.5]])
     assert np.allclose(l1.get_weights(), expected_weights)
     # Second pass
     target2 = m.predict(xs2, 1000)
-    error_out = m.backward(ys2, lambda w, g: w - g)
-    assert np.allclose(error_out, np.array([0, 0]), atol=0.001)
+    out = m.backward(ys2, lambda w, g: w - g)
+    assert np.allclose(out, np.array([0, 0]), atol=0.001)
     expected_weights = np.array([[1, 0.5], [1, 0.5]])
     assert np.allclose(l1.get_weights(), expected_weights)
     assert np.allclose(v.spike_argmax(target1, randomise_ties=False), np.array([1, 0]))

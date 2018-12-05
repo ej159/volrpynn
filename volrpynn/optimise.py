@@ -59,7 +59,7 @@ class GradientDescentOptimiser(Optimiser):
         self.learning_rate = learning_rate
         self.simulation_time = simulation_time
 
-    def test(self, model, xs, ys, error_function):
+    def test(self, model, xs, ys):
         """Test the model with the given input and expected output. 
         The error function calculates the error rate, given the predicted
         and expected (target) output.
@@ -72,19 +72,17 @@ class GradientDescentOptimiser(Optimiser):
         ys -- The expected (target) output data as a 2-dimensional array
               where the first dimension is the separate data entries and
               the second dimension is the expected predicted output
-        error_function -- A function that can calculate the error as the 
-                          difference between the actual and expected output
 
         Returns:
-        A list of errors
+        A list of outputs
         """
-        errors = []
+        actual_ys = []
         for x, target_y in zip(xs, ys):
-            error = self.test_single(model, x, target_y, error_function)
-            errors.append(error)
-        return errors
+            output = self.test_single(model, x, target_y)
+            actual_ys.append(output)
+        return actual_ys
 
-    def test_single(self, model, x, target_y, error_function):
+    def test_single(self, model, x, target_y):
         """Tests a single data entry by simulating the input 'x' and
         returning the error between the actual and expected output.
         Uses the internal decoder to decode the output before feeding
@@ -94,16 +92,12 @@ class GradientDescentOptimiser(Optimiser):
         model -- The model to test
         x -- An array of input rates for the input neurons
         target_y -- The expected output as an array of numbers
-        error_function -- A function that can calculate the error as the 
-                          difference between the actual and expected output
 
         Returns:
-        The error of the single prediction
+        The decoded output
         """
-        assert callable(error_function), "error_function must be callable"
         actual_y = model.predict(x, self.simulation_time)
-        decoded = self.decoder(actual_y)
-        return error_function(decoded, target_y)
+        return self.decoder(actual_y)
 
     def train(self, model, xs, ys, error_function):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
@@ -112,10 +106,13 @@ class GradientDescentOptimiser(Optimiser):
         def calculate_weights(weights, deltas):
             return weights - (np.multiply(self.learning_rate, deltas))
 
-        errors = []
+        actual_ys = []
         for x, target_y in zip(xs, ys):
-            error = self.test_single(model, x, target_y, error_function)
-            errors.append(error)
+            # Forward pass
+            output = self.test_single(model, x, target_y)
+            actual_ys.append(output)
+            # Backward pass
+            error = error_function(output, target_y)
             model.backward(error, calculate_weights)
             
-        return model, errors
+        return model, actual_ys
