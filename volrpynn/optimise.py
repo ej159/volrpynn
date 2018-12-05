@@ -52,17 +52,37 @@ class GradientDescentOptimiser(Optimiser):
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
         simulation_time -- Time in milliseconds how long each data point
-                           be simulated
+                           be simulated. Defaults to 500 ms
         """
         assert callable(decoder)
         self.decoder = decoder
         self.learning_rate = learning_rate
         self.simulation_time = simulation_time
 
-    def test(self, model, xs, ys):
+    def test(self, model, xs, ys, error_function):
+        """Test the model with the given input and expected output. 
+        The error function calculates the error rate, given the predicted
+        and expected (target) output.
+
+        Args:
+        model -- The model to test
+        xs -- The input data as a 2-dimensional numpy array
+              where the first dimension is the separate data entries and
+              the second dimension is the Poisson rates for the neurons
+        ys -- The expected (target) output data as a 2-dimensional array
+              where the first dimension is the separate data entries and
+              the second dimension is the expected predicted output
+
+        Returns:
+        A list of errors
+        """
+        assert callable(error_function), "error_function must be callable"
         errors = []
-        for x, y in zip(xs, ys):
-            model.predict(xs)
+        for x, target_y in zip(xs, ys):
+            actual_y = model.predict(xs, self.simulation_time)
+            error = error_function(actual_y, target_y)
+            errors.append(error)
+        return errors
 
     def train(self, model, xs, ys, error_function):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))

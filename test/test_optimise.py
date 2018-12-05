@@ -13,7 +13,17 @@ class TestModel():
         self.called_backward += 1
         return error
 
-def test_gradient_descent_optimiser():
+def test_gradient_descent_train():
+    model = TestModel()
+    optimiser = v.GradientDescentOptimiser(lambda x: x, 0.1)
+    error = v.sum_squared_error
+    xs = np.zeros((10, 2))
+    ys = np.zeros((10, 1))
+    optimiser.test(model, xs, ys, error)
+    assert model.called_predict == 10
+    assert model.called_backward == 0
+
+def test_gradient_descent_test():
     model = TestModel()
     optimiser = v.GradientDescentOptimiser(lambda x: x, 0.1)
     error = v.sum_squared_error
