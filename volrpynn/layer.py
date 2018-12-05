@@ -58,7 +58,7 @@ class Dense(Layer):
                    numpy array
         """
         self.projection = pynn.Projection(pop_in, pop_out,
-                pynn.AllToAllConnector(allow_self_connections=False))
+                pynn.AllToAllConnector(allow_self_connections=True))
 
         # Store gradient model
         assert callable(gradient_model), "gradient_model must be a function"
@@ -69,7 +69,10 @@ class Dense(Layer):
         self.decoder = decoder
 
         # Assign given weights or default to 1
-        self.set_weights(weights if weights else 1)
+        if weights is not None:
+            self.set_weights(weights)
+        else:
+            self.set_weights(1)
 
         # Prepare spike recordings
         self.projection.post.record('spikes')
@@ -87,7 +90,7 @@ class Dense(Layer):
 
         # Activation gradient
         error_gradient = self.gradient_model(self.decoder(self.spikes), errors)
-  
+
         # Calculate weight changes and update
         layer_delta = np.multiply(self.weights, error_gradient)
         new_weights = optimiser(self.weights, layer_delta)

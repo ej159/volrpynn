@@ -9,3 +9,7 @@ def test_error_SSE():
     assert out.shape == (10, 1)
     assert np.array_equal(out, expected)
 
+def test_error_SSE_layer():
+    xs = np.array([1, 0])
+    ys = np.array([1, 0])
+    assert np.allclose(v.sum_squared_error(xs, ys), np.array([0, 0]))

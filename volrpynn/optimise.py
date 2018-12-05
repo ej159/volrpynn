@@ -42,7 +42,7 @@ class GradientDescentOptimiser(Optimiser):
        with a given learning rate
     """
     
-    def __init__(self, decoder, learning_rate, simulation_time = 500):
+    def __init__(self, decoder, learning_rate, simulation_time = 1000):
         """Constructs a gradient descent optimiser given a learning rate
     
         Args:
@@ -52,7 +52,7 @@ class GradientDescentOptimiser(Optimiser):
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
         simulation_time -- Time in milliseconds how long each data point
-                           be simulated. Defaults to 500 ms
+                           be simulated. Defaults to 1000 ms
         """
         assert callable(decoder)
         self.decoder = decoder
@@ -72,31 +72,50 @@ class GradientDescentOptimiser(Optimiser):
         ys -- The expected (target) output data as a 2-dimensional array
               where the first dimension is the separate data entries and
               the second dimension is the expected predicted output
+        error_function -- A function that can calculate the error as the 
+                          difference between the actual and expected output
 
         Returns:
         A list of errors
         """
-        assert callable(error_function), "error_function must be callable"
         errors = []
         for x, target_y in zip(xs, ys):
-            actual_y = model.predict(xs, self.simulation_time)
-            error = error_function(actual_y, target_y)
+            error = self.test_single(model, x, target_y, error_function)
             errors.append(error)
         return errors
 
+    def test_single(self, model, x, target_y, error_function):
+        """Tests a single data entry by simulating the input 'x' and
+        returning the error between the actual and expected output.
+        Uses the internal decoder to decode the output before feeding
+        it to the error function.
+
+        Args:
+        model -- The model to test
+        x -- An array of input rates for the input neurons
+        target_y -- The expected output as an array of numbers
+        error_function -- A function that can calculate the error as the 
+                          difference between the actual and expected output
+
+        Returns:
+        The error of the single prediction
+        """
+        assert callable(error_function), "error_function must be callable"
+        actual_y = model.predict(x, self.simulation_time)
+        decoded = self.decoder(actual_y)
+        return error_function(decoded, target_y)
+
     def train(self, model, xs, ys, error_function):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
-        assert callable(error_function), "Error function must be callable"
 
         # Define update function
         def calculate_weights(weights, deltas):
             return weights - (np.multiply(self.learning_rate, deltas))
 
-        actual = []
+        errors = []
         for x, target_y in zip(xs, ys):
-            y = model.predict(x, self.simulation_time)
-            actual.append(self.decoder(y))
-            error = error_function(self.decoder(y), target_y)
+            error = self.test_single(model, x, target_y, error_function)
+            errors.append(error)
             model.backward(error, calculate_weights)
             
-        return model, actual
+        return model, errors

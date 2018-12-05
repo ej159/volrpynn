@@ -1,8 +1,11 @@
 import volrpynn as v
 import pyNN.nest as pynn
 import numpy as np
+import pytest
 
-pynn.setup()
+@pytest.fixture(autouse=True)
+def setup():
+    pynn.setup()
 
 def test_nest_dense_create():
     p1 = pynn.Population(12, pynn.IF_cond_exp())
@@ -18,7 +21,20 @@ def test_nest_dense_projection():
     p2.record('spikes')
     d = v.Dense(pynn, p1, p2, v.relu_derived)
     pynn.run(1000)
-    assert len(p2.get_data().segments[-1].spiketrains) > 0
+    spiketrains = p2.get_data().segments[-1].spiketrains
+    assert len(spiketrains) == 10
+    for i in range(10):
+        assert spiketrains[i].size > 0
+
+def test_nest_dense_reduced_weight_fire():
+    p1 = pynn.Population(2, pynn.SpikeSourcePoisson(rate = 1))
+    p2 = pynn.Population(1, pynn.IF_cond_exp())
+    p2.record('spikes')
+    d = v.Dense(pynn, p1, p2, v.relu_derived, weights = np.array([[1], [0]]))
+    pynn.run(1000)
+    spiketrains = p2.get_data().segments[-1].spiketrains
+    assert len(spiketrains) == 1
+    assert spiketrains[0].size > 0
 
 def test_nest_dense_chain():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 100))
@@ -36,7 +52,7 @@ def test_nest_dense_restore():
     d = v.Dense(pynn, p1, p2, v.relu_derived, weights = 2)
     d.set_weights(-1)
     assert np.array_equal(d.projection.get('weight', format='array'),
-            np.ones((12, 10)) * -1)
+             np.ones((12, 10)) * -1)
     d.projection.set(weight = 1) # Simulate reset()
     assert np.array_equal(d.projection.get('weight', format='array'),
             np.ones((12, 10)))

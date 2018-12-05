@@ -1,8 +1,11 @@
 import volrpynn as v
 import pyNN.nest as pynn
 import numpy as np
+import pytest
 
-pynn.setup()
+@pytest.fixture(autouse=True)
+def setup():
+    pynn.setup()
 
 ### Basic PyNN tests
 
@@ -61,8 +64,7 @@ def test_nest_model_predict_active():
 def test_nest_model_predict_inactive():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    d = pynn.random.RandomDistribution('normal', mu=1, sigma=0.1)
-    l = v.Dense(pynn, p1, p2, v.relu_derived, weights = d)
+    l = v.Dense(pynn, p1, p2, v.relu_derived)
     m = v.Model(pynn, l)
     out = m.predict(np.array([0, 0]), 1000)
     assert len(out) == 2
@@ -87,16 +89,21 @@ def test_nest_model_backwards_reset():
     p2 = pynn.Population(2, pynn.IF_cond_exp())
     l1 = v.Dense(pynn, p1, p2, v.relu_derived)
     m = v.Model(pynn, l1)
-    xs1 = np.array([1, 0])
-    ys1 = np.array([1, 0])
-    xs2 = np.array([0, 1])
+    xs1 = np.array([1, 1])
+    ys1 = np.array([0, 1])
+    xs2 = np.array([1, 1])
     ys2 = np.array([0, 1])
-    target1 = m.predict(xs1, 500)
-    m.backward(ys1, lambda w, g: w - g)
-    target2 = m.predict(xs2, 500)
-    out = m.backward(ys2, lambda w, g: w - g)
-    expected_weights = np.array([[0.5, 0], [0.5, 0]])
+    # First pass
+    target1 = m.predict(xs1, 1000)
+    error_out = m.backward(ys1, lambda w, g: w - g)
+    assert np.allclose(error_out, np.array([0.25, 0.25]))
+    expected_weights = np.array([[1, 0.5], [1, 0.5]])
     assert np.allclose(l1.get_weights(), expected_weights)
-    assert np.allclose(out, np.array([1, 1]))
-    assert np.allclose(v.spike_softmax(target1), np.array([0.5, 0.5]))
-    assert np.allclose(v.spike_softmax(target2), np.array([0, 1]))
+    # Second pass
+    target2 = m.predict(xs2, 1000)
+    error_out = m.backward(ys2, lambda w, g: w - g)
+    assert np.allclose(error_out, np.array([0, 0]), atol=0.001)
+    expected_weights = np.array([[1, 0.5], [1, 0.5]])
+    assert np.allclose(l1.get_weights(), expected_weights)
+    assert np.allclose(v.spike_argmax(target1, randomise_ties=False), np.array([1, 0]))
+    assert np.allclose(v.spike_argmax(target2), np.array([1, 0]))

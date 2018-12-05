@@ -2,6 +2,10 @@
 
 import numpy as np
 
+def spike_count(spiketrains):
+    """Counts the number of spikes in an array of SpikeTrains"""
+    return np.array(list(map(len, spiketrains)))
+
 def spike_softmax(spiketrains):
     """Finds the softmax of a list of spiketrains by counting the spike rate
 
