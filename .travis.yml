@@ -8,7 +8,12 @@ python:
 services: 
   - docker
 
+git:
+  submodules: false
+
 before_install:
+  - sed -i 's/git@github.com:/https:\/\/github.com\//' .gitmodules
+  - git submodule update --init --recursive
   - docker build -t volr/docker-nest-master -f ci/nest/src/master/Dockerfile ci/nest/src/master/
   - docker build -t volr/docker-nest-2.16.0 -f ci/nest/src/nest-2.16.0/Dockerfile ci/nest/src/nest-2.16.0/
   - docker build -t volr/nest-2.16.0 -f ci/Dockerfile-nest-2.16.0 .
