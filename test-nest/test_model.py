@@ -82,7 +82,7 @@ def test_nest_model_backwards():
     out = m.backward(ys, lambda w, g: w - g)
     expected_weights = np.array([[2/3.0, 1, 1], [2/3.0, 1, 1]])
     assert np.allclose(l1.get_weights(), expected_weights)
-    assert np.allclose(out, np.array([0.1111111, 0.1111111]))
+    assert np.allclose(out, np.array([0.2222222, 0.2222222]))
 
 def test_nest_model_backwards_reset():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
@@ -105,5 +105,5 @@ def test_nest_model_backwards_reset():
     assert np.allclose(out, np.array([0, 0]), atol=0.001)
     expected_weights = np.array([[1, 0.5], [1, 0.5]])
     assert np.allclose(l1.get_weights(), expected_weights)
-    assert np.allclose(v.spike_argmax(target1, randomise_ties=False), np.array([1, 0]))
+    assert np.allclose(v.spike_argmax(target1), np.array([1, 0]))
     assert np.allclose(v.spike_argmax(target2), np.array([1, 0]))

@@ -20,7 +20,29 @@ def spike_softmax(spiketrains):
     e_x = np.exp(shifted)
     return (e_x / e_x.sum(axis = 0))
 
-def spike_argmax(spiketrains, randomise_ties=True):
+def spike_argmax(spiketrains):
+    """Argmax over the neuron with the largest number of spikes.
+    If no spikes exist, or if there are ties between spike counts,
+    the first neuron is chosen. This behaviour can be changed by
+    using the spike_argmax_random.
+
+    Args:
+    spiketrains -- A numpy array of neo.core.SpikeTrain
+
+    Returns:
+    An array with zeros, except for the neuron with the highest spike count
+    """
+    lengths = np.array(list(map(len, spiketrains)))
+    max_value = lengths.max()
+    max_array = np.zeros(lengths.shape)
+
+    non_zero_indices = np.flatnonzero(lengths == max_value)
+    max_index = non_zero_indices[0]
+    max_array[max_index] = 1
+
+    return max_array
+    
+def spike_argmax_randomise(spiketrains):
     """Argmax over the neuron with the largest number of spikes.
     If no spikes exist, or if there are ties between spike counts,
     a random neuron exist. This behaviour can be changed with the
@@ -28,9 +50,6 @@ def spike_argmax(spiketrains, randomise_ties=True):
 
     Args:
     spiketrains -- A numpy array of neo.core.SpikeTrain
-    randomise_ties -- A boolean indicating whether ties should be
-                      randomised. If set to False, the first neuron
-                      is chosen in case of ties
 
     Returns:
     An array with zeros, except for the neuron with the highest spike count
@@ -40,16 +59,10 @@ def spike_argmax(spiketrains, randomise_ties=True):
     max_array = np.zeros(lengths.shape)
 
     if max_value == 0:
-        return np.zeros(lengths.shape)
-    
-    non_zero_indices = np.flatnonzero(lengths == max_value)
-
-    if randomise_ties:
+        max_index = 0
+    else: 
+        non_zero_indices = np.flatnonzero(lengths == max_value)
         max_index = np.random.choice(non_zero_indices)
-    else:
-        max_index = non_zero_indices[0]
-       
-    max_array[max_index] = 1
+        max_array[max_index] = 1
 
     return max_array
-    

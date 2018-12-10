@@ -89,15 +89,16 @@ class Dense(Layer):
         assert callable(optimiser), "Optimiser must be callable"
 
         # Activation gradient
-        error_gradient = self.gradient_model(self.decoder(self.spikes), errors)
+        layer_input = self.decoder(self.spikes)
+        layer_derived = self.gradient_model(layer_input)
 
         # Calculate weight changes and update
-        layer_delta = np.multiply(self.weights, error_gradient)
+        layer_delta = np.multiply(layer_derived, errors)
         new_weights = optimiser(self.weights, layer_delta)
         self.set_weights(new_weights)
         
         # Return errors changes in backwards layer
-        error_weighted = np.matmul(layer_delta, error_gradient)
+        error_weighted = np.matmul(self.weights, layer_delta)
         return error_weighted
 
     def get_weights(self):

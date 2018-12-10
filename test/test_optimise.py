@@ -15,7 +15,7 @@ class TestModel():
 
 def test_gradient_descent_train():
     model = TestModel()
-    optimiser = v.GradientDescentOptimiser(lambda x: x, 0.1)
+    optimiser = v.GradientDescentOptimiser(0.1, decoder = lambda x: x)
     error = v.sum_squared_error
     xs = np.zeros((10, 2))
     ys = np.zeros((10, 1))
@@ -25,10 +25,10 @@ def test_gradient_descent_train():
 
 def test_gradient_descent_test():
     model = TestModel()
-    optimiser = v.GradientDescentOptimiser(lambda x: x, 0.1)
+    optimiser = v.GradientDescentOptimiser(0.1, decoder = lambda x: x)
     error = v.sum_squared_error
     xs = np.zeros((10, 2))
     ys = np.zeros((10, 1))
-    optimiser.train(model, xs, ys, error)
+    optimiser.train(model, xs, ys)
     assert model.called_predict == 10
     assert model.called_backward == 10

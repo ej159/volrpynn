@@ -67,7 +67,7 @@ def test_nest_dense_backprop():
     old_weights = l.get_weights()
     l.spikes = np.zeros((10, 1)) # Mock spikes
     errors = l.backward(np.ones((10)), lambda w, g: w - g)
-    expected_errors = np.zeros((12,)) + 0.2
+    expected_errors = np.zeros((12,)) + 1.9
     assert np.allclose(errors, expected_errors)
-    expected_weights = old_weights - 0.2
+    expected_weights = old_weights - 0.1
     assert np.allclose(l.get_weights(), expected_weights)

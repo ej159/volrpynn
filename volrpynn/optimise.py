@@ -42,17 +42,17 @@ class GradientDescentOptimiser(Optimiser):
        with a given learning rate
     """
     
-    def __init__(self, decoder, learning_rate, simulation_time = 1000):
+    def __init__(self, learning_rate, simulation_time = 1000, decoder = spike_softmax):
         """Constructs a gradient descent optimiser given a learning rate
     
         Args:
-        decoder -- A decoder that can decode a list of SpikeTrains to a list of
-                   numerical values for use in error and backpropagation
-                   functions
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
         simulation_time -- Time in milliseconds how long each data point
                            be simulated. Defaults to 1000 ms
+        decoder -- A decoder that can decode a list of SpikeTrains to a list of
+                   numerical values for use in error and backpropagation
+                   functions. Defaults to spike_softmax
         """
         assert callable(decoder)
         self.decoder = decoder
@@ -63,6 +63,8 @@ class GradientDescentOptimiser(Optimiser):
         """Test the model with the given input and expected output. 
         The error function calculates the error rate, given the predicted
         and expected (target) output.
+        The output is a list of booleans that indicates whether the output
+        was the same as the expected (True) or not (False).
 
         Args:
         model -- The model to test
@@ -74,13 +76,14 @@ class GradientDescentOptimiser(Optimiser):
               the second dimension is the expected predicted output
 
         Returns:
-        A list of outputs
+        A list of booleans
         """
-        actual_ys = []
+        hits = []
         for x, target_y in zip(xs, ys):
             output = self.test_single(model, x, target_y)
-            actual_ys.append(output)
-        return actual_ys
+            hit = np.allclose(output, target_y)
+            hits.append(hit)
+        return hits
 
     def test_single(self, model, x, target_y):
         """Tests a single data entry by simulating the input 'x' and
@@ -99,7 +102,7 @@ class GradientDescentOptimiser(Optimiser):
         actual_y = model.predict(x, self.simulation_time)
         return self.decoder(actual_y)
 
-    def train(self, model, xs, ys, error_function):
+    def train(self, model, xs, ys):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
 
         # Define update function
@@ -112,7 +115,7 @@ class GradientDescentOptimiser(Optimiser):
             output = self.test_single(model, x, target_y)
             actual_ys.append(output)
             # Backward pass
-            error = error_function(output, target_y)
+            error = output - target_y
             model.backward(error, calculate_weights)
             
         return model, actual_ys

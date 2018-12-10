@@ -6,7 +6,7 @@ import numpy as np
 import volrpynn.activation
 
 def sum_squared_error(output, labels):
-    return ((output - labels) ** 2).sum()
+    return (output - labels) ** 2
 
 def argmax_index(xs, randomise_ties=True):
     max_value = xs.max()
