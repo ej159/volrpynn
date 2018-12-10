@@ -1,0 +1,3 @@
+[submodule "ci/nest"]
+	path = ci/nest
+	url = git@github.com:volr/nest-docker.git
