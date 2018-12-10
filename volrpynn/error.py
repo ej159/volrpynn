@@ -10,10 +10,6 @@ def sum_squared_error(output, labels):
 
 def argmax_index(xs, randomise_ties=True):
     max_value = xs.max()
-
-    if max_value == 0:
-        return np.zeros(xs.shape)
-    
     non_zero_indices = np.flatnonzero(xs == max_value)
 
     if randomise_ties:

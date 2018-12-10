@@ -3,56 +3,18 @@
 ## Documentation: http://www.nest-simulator.org/installation/
 ##
 
-FROM ubuntu:18.04
-
-# Set install to noninteractive
-ENV DEBIAN_FRONTEND=noninteractive
-ENV VERSION="2.16.0"
-
-# Install dependencies and clean up
-RUN apt-get update && apt-get install -y \
-     build-essential \
-     cmake \
-     cython \
-     autoconf \
-     wget \
-     libtool \
-     libarchive-dev \
-     libgsl-dev \
-     libopenmpi-dev \
-     ssh \
-     python-pip \
-     git \
-     libtool \
-     python-tk && \
-     rm -rf /var/lib/apt/lists/*
-
-RUN wget https://github.com/nest/nest-simulator/archive/v${VERSION}.tar.gz
-RUN tar xf v${VERSION}.tar.gz
-RUN mkdir nest-simulator-v${VERSION}-build
-RUN cd nest-simulator-v${VERSION}-build
-WORKDIR /nest-simulator-v${VERSION}-build
-RUN cmake -DCMAKE_INSTALL_PREFIX:PATH=../nest-${VERSION}/ ../nest-simulator-${VERSION} # -Dwith-music=../music-${2//v}/ -Dwith-mpi=ON
-RUN make -j12
-RUN make install
-# This test fails because it can't properly spawn daemons
-#RUN make installcheck # check integrity of nest install
+FROM volr/docker-nest-2.16.0:latest
 
 ENV PATH="${PATH}:/nest-${VERSION}/bin/:/nest-${VERSION}/lib"
 ENV PYTHONPATH="/nest-${VERSION}/lib/python2.7/site-packages/"
 ENV PYTHONIOENCODING="utf8"
 
-RUN pip install --no-binary :all: PyNN
-RUN pip install mpi4py numpy scipy matplotlib addict future lazyarray neo pytest
+RUN pip3 install --no-binary :all: PyNN
+RUN pip3 install mpi4py numpy scipy matplotlib addict future lazyarray neo pytest
 
 # Install volrpynn
-COPY . /volrpynn
-RUN pip install -e /volrpynn
-
-# remove redundant files
-RUN rm /v${VERSION}.tar.gz
-RUN rm -rf /nest-simulator-v${VERSION}-build/
-RUN rm -rf /nest-simulator-${VERSION}/
+ADD . /volrpynn
+RUN pip3 install -e /volrpynn
 
 # Prepare working environment
 RUN mkdir /data
