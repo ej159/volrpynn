@@ -3,27 +3,23 @@ The model of VolrPyNN
 """
 
 import numpy as np
-from volrpynn import util
+import volrpynn as v
+from volrpynn.util import get_pynn as pynn
 
 class Model(object):
     """A model of a neural network experiment"""
 
-    def __init__(self, pynn, *layers):
+    def __init__(self, *layers):
         """Instantiates the model with a PyNN implementation and a Layer description
 
         Args:
-        pynn -- The PyNN simulator instance, needed to interface with the
-                backend
         pop_in -- The PyNN input population
         pop_out -- The PyNN output population
         layers -- A list of Layers build over PyNN populations
         """
-        # Ensure that pynn is set
-        assert pynn != None, "Please assign PyNN backend"
         assert len(layers) > 0, "Layers must not be empty"
         
         # Assign populations and layers
-        self.pynn = pynn
         self.node_input = layers[0].projection.pre
         self.node_output = layers[-1].projection.post
         self.layers = layers
@@ -35,11 +31,15 @@ class Model(object):
         self.input_populations = []
         input_size = self.node_input.size
         for _ in range(input_size):
-            self.input_populations.append(pynn.Population(1,
-                pynn.SpikeSourcePoisson(rate = 1.0)))
-        self.input_source = pynn.Assembly(*self.input_populations)
-        self.input_projection = pynn.Projection(self.input_source, self.node_input,
-                pynn.OneToOneConnector(), pynn.StaticSynapse(weight = 1.0))
+            population = pynn().Population(1, pynn().SpikeSourcePoisson(rate = 1.0))
+            population.record('spikes')
+            self.input_populations.append(population)
+            
+        self.input_assembly = pynn().Assembly(*self.input_populations)
+
+        self.input_projection = pynn().Projection(self.input_assembly, 
+                 self.node_input, pynn().OneToOneConnector(),
+                 pynn().StaticSynapse(weight = 1.0))
 
     def set_input(self, poisson_rates):
         """Assigns the vector of poisson rates to the input neurons, that inject
@@ -64,14 +64,17 @@ class Model(object):
         self.set_input(xs)
         return self.simulate(time)
 
-    def backward(self, error, optimiser):
+    def backward(self, output, error, optimiser):
         """Performs a backwards pass through the model *without* executing the
         simulation, which is assumed to happen *before* this method is called.
         This function has side-effects: while performing the backward pass,
         the model is updated with new weights.
 
         Args:
-        error -- The numerical error that the model should adjust to
+        error -- The numerical error that the model should adjust to as a numpy
+                 array
+        output -- The output from the model, with which to backpropagate, as a
+                  numpy array
         optimiser -- A function that calculates the new weights of a layer
                      given the current layer weights and the weights deltas
                      from the derived layer activation function
@@ -81,23 +84,27 @@ class Model(object):
         layer to the input layer.
         """
         layer_error = np.copy(error)
+        layer_output = np.copy(output)
         # Backprop through the layers
         for layer in reversed(self.layers):
-            layer_error = layer.backward(layer_error, optimiser)
+            layer_input, layer_error = layer.backward(layer_output, layer_error, optimiser)
         return layer_error
 
     def simulate(self, time):
         # Reset simulation and restore weights
-        self.pynn.reset()
+        pynn().reset()
         for layer in self.layers:
             layer.restore_weights()
 
-        self.pynn.run(time)
+        pynn().run(time)
 
         # Collect spikes
         for layer in self.layers:
             layer.store_spikes()
         output_spikes = self.node_output.getSpikes().segments[-1].spiketrains
-
-        self.pynn.end()
-        return output_spikes
+        output_values = self.layers[-1].decoder(output_spikes)
+        for i in self.input_populations:
+            print(v.spike_count(i.getSpikes().segments[-1].spiketrains))
+        
+        pynn().end()
+        return output_values

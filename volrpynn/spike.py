@@ -6,6 +6,13 @@ def spike_count(spiketrains):
     """Counts the number of spikes in an array of SpikeTrains"""
     return np.array(list(map(len, spiketrains)))
 
+def spike_count_normalised(spiketrains, interval_max = 1.0):
+    """Counts the number of spikes in an array, normalised to an
+    interval between 0 and a maximum value (that must be positive"""
+    assert interval_max > 0, "Maximum interval value must be above 0"
+    lengths = np.array(list(map(len, spiketrains)))
+    return lengths / np.max(lengths)
+
 def spike_softmax(spiketrains):
     """Finds the softmax of a list of spiketrains by counting the spike rate
 

@@ -80,4 +80,3 @@ def execute(conf, train, test):
 
     nest.Simulate(simtime)
 
-    print(spikedetectors[0][0])

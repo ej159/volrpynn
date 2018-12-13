@@ -42,7 +42,7 @@ class GradientDescentOptimiser(Optimiser):
        with a given learning rate
     """
     
-    def __init__(self, learning_rate, simulation_time = 1000, decoder = spike_softmax):
+    def __init__(self, learning_rate, simulation_time = 1000):
         """Constructs a gradient descent optimiser given a learning rate
     
         Args:
@@ -50,12 +50,7 @@ class GradientDescentOptimiser(Optimiser):
                          (learning)
         simulation_time -- Time in milliseconds how long each data point
                            be simulated. Defaults to 1000 ms
-        decoder -- A decoder that can decode a list of SpikeTrains to a list of
-                   numerical values for use in error and backpropagation
-                   functions. Defaults to spike_softmax
         """
-        assert callable(decoder)
-        self.decoder = decoder
         self.learning_rate = learning_rate
         self.simulation_time = simulation_time
 
@@ -88,8 +83,6 @@ class GradientDescentOptimiser(Optimiser):
     def test_single(self, model, x, target_y):
         """Tests a single data entry by simulating the input 'x' and
         returning the error between the actual and expected output.
-        Uses the internal decoder to decode the output before feeding
-        it to the error function.
 
         Args:
         model -- The model to test
@@ -97,10 +90,9 @@ class GradientDescentOptimiser(Optimiser):
         target_y -- The expected output as an array of numbers
 
         Returns:
-        The decoded output
+        The predicted output of the model
         """
-        actual_y = model.predict(x, self.simulation_time)
-        return self.decoder(actual_y)
+        return model.predict(x, self.simulation_time)
 
     def train(self, model, xs, ys):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
@@ -116,6 +108,6 @@ class GradientDescentOptimiser(Optimiser):
             actual_ys.append(output)
             # Backward pass
             error = output - target_y
-            model.backward(error, calculate_weights)
+            model.backward(output, error, calculate_weights)
             
         return model, actual_ys

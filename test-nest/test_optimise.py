@@ -1,6 +1,6 @@
 import pyNN.nest as pynn
 import numpy as np
-import volrpynn as v
+import volrpynn.nest as v
 import pytest
 
 @pytest.fixture(autouse=True)
@@ -10,8 +10,8 @@ def setup():
 def test_gradient_optimiser_train_simple():
     p1 = pynn.Population(1, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(pynn, p1, p2, v.relu_derived)
-    model = v.Model(pynn, l)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax)
+    model = v.Model(l)
     optimiser = v.GradientDescentOptimiser(0.1)
     xs = np.array([[1]])
     ys = np.array([[1, 0]])
@@ -32,8 +32,8 @@ def test_gradient_optimiser_train_simple():
 def test_gradient_optimiser_train():
     p1 = pynn.Population(3, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(pynn, p1, p2, v.relu_derived)
-    model = v.Model(pynn, l)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax)
+    model = v.Model(l)
     optimiser = v.GradientDescentOptimiser(0.1)
     xs = np.array([[1, 0, 0], [1, 0, 0], [1, 0, 0]])
     ys = np.array([[1, 0], [1, 0], [1, 0]])
@@ -47,16 +47,19 @@ def test_gradient_optimiser_train():
 def test_gradient_optimiser_train_categorical():
     p1 = pynn.Population(3, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(pynn, p1, p2, v.relu_derived)
-    model = v.Model(pynn, l)
-    optimiser = v.GradientDescentOptimiser(0.1, decoder = v.spike_argmax)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax)
+    model = v.Model(l)
+    optimiser = v.GradientDescentOptimiser(0.1)
     xs = np.array([[1, 0, 0], [1, 0, 0], [1, 0, 0]])
     ys = np.array([[1, 0], [1, 0], [1, 0]])
     m, y = optimiser.train(model, xs, ys)
-    assert np.allclose(y, np.array([[1.0, 0.0], [1.0, 0.0], [1.0, 0.0]]))
-    assert np.allclose(l.get_weights(), np.ones((3, 2)))
+    assert np.allclose(y, np.array([[0.5, 0.5], [0.88, 0.12], [0.95, 0.05]]),
+            atol=0.1)
+    assert np.allclose(l.get_weights(), np.ones((3, 2)), atol = 0.1)
     xs = np.array([[1, 0, 0]])
     ys = np.array([[0, 1]])
     m, y = optimiser.train(model, xs, ys)
     assert np.allclose(y, np.array([[0.999, 0.0003]]), atol=0.01)
-    assert np.allclose(l.get_weights(), np.array([[0.95, 1.05], [0.95, 1.05], [0.95, 1.05]]))
+    assert np.allclose(l.get_weights(), np.array([[0.95, 1.05], [0.95, 1.05],
+        [0.95, 1.05]]), atol= 0.1)
+

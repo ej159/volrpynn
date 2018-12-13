@@ -1,4 +1,5 @@
 import addict
+import sys
 
 def clean_parameters(parameters):
     del parameters['type']
@@ -144,3 +145,11 @@ def create_node(pynn, node):
         assert False
     else:
         assert False
+
+def get_pynn():
+    module = sys.modules['volrpynn']
+    if hasattr(module, '__pynn__'):
+        return module.__pynn__
+    else:
+        raise RuntimeError("""VolrPyNN not initialised correctly, please import
+like so: import volrpynn.[backend], example: import volrpynn.nest""")

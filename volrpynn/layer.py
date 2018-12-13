@@ -5,7 +5,8 @@ storing weights.
 """
 import abc
 import numpy as np
-from volrpynn.spike import spike_softmax
+import volrpynn as v
+from volrpynn.util import get_pynn as pynn
 
 class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
@@ -41,13 +42,12 @@ class Dense(Layer):
     """A densely connected neural layer between two populations.
        Assumes the PyNN projection is as an all-to-all connection."""
 
-    def __init__(self, pynn, pop_in, pop_out, gradient_model, weights=None,
-            decoder=spike_softmax):
+    def __init__(self, pop_in, pop_out, gradient_model, weights=None,
+            decoder=v.spike_count):
         """
         Initialises a densely connected layer between two populations
 
         Args:
-        pynn -- The PyNN backend
         pop_in -- The input population
         pop_out -- The output population
         gradient_model -- The function that calculates the neuron gradients
@@ -57,8 +57,8 @@ class Dense(Layer):
         decoder -- A function that can code a list of SpikeTrains into a numeric
                    numpy array
         """
-        self.projection = pynn.Projection(pop_in, pop_out,
-                pynn.AllToAllConnector(allow_self_connections=True))
+        self.projection = pynn().Projection(pop_in, pop_out,
+                pynn().AllToAllConnector(allow_self_connections=True))
 
         # Store gradient model
         assert callable(gradient_model), "gradient_model must be a function"
@@ -75,31 +75,39 @@ class Dense(Layer):
             self.set_weights(1)
 
         # Prepare spike recordings
-        self.projection.post.record('spikes')
+        self.projection.pre.record('spikes')
 
         
-    def backward(self, errors, optimiser):
+    def backward(self, output, error, optimiser):
         """Backward pass in the dense layer
 
         Args:
-        errors -- The errors in the output from this layer
+        output -- The output from the previous layer as a numpy array
+        error -- The error in the output from this layer as a numpy array
         optimiser -- The optimiser that calculates the new layer weights, given
                      the current weights and the gradient deltas
+
+        Returns:
+        A tuple of the cached spikes from the first (input) layer and the errors
         """
         assert callable(optimiser), "Optimiser must be callable"
 
-        # Activation gradient
-        layer_input = self.decoder(self.spikes)
-        layer_derived = self.gradient_model(layer_input)
+        # Activation gradient for the output
+        output_derived = self.gradient_model(output)
+        output_delta = np.multiply(output_derived, error)
 
-        # Calculate weight changes and update
-        layer_delta = np.multiply(layer_derived, errors)
+        # Calculate weight delta and error
+        print("spikes: ", v.spike_count_normalised(self.spikes))
+        input_layer = self.decoder(self.spikes)
+        layer_delta = np.outer(input_layer, output_delta)
+        error_weighted = np.multiply(self.weights, layer_delta)
+
+        # Optimise weights and store
         new_weights = optimiser(self.weights, layer_delta)
         self.set_weights(new_weights)
         
         # Return errors changes in backwards layer
-        error_weighted = np.matmul(self.weights, layer_delta)
-        return error_weighted
+        return input_layer, error_weighted.sum(axis=1)
 
     def get_weights(self):
         return self.weights
@@ -109,8 +117,8 @@ class Dense(Layer):
         self.weights = self.projection.get('weight', format='array')
 
     def store_spikes(self):
-        segments = self.projection.post.get_data('spikes').segments
-        self.spikes = segments[-1].spiketrains
+        segments = self.projection.pre.get_data('spikes').segments
+        self.spikes = np.array(segments[-1].spiketrains)
         return self.spikes
 
 #class MergeLayer(Layer):

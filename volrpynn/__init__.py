@@ -4,6 +4,15 @@ VolrPyNN
 
 A Python library for training and testing spiking neural network
 models in PyNN.
+
+Usage:
+  import volrpynn.[backend] as v
+
+Example:
+  import volrpynn.nest as v
+
+Available backends:
+  nest
 """
 
 # Import VolrPyNN 
@@ -19,3 +28,4 @@ from . import layer
 from .layer import *
 from . import model
 from .model import *
+
