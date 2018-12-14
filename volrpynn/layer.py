@@ -53,7 +53,8 @@ class Dense(Layer):
         gradient_model -- The function that calculates the neuron gradients
                           given the current spikes and errors from this layer
         weights -- Either a single number, an array of weights or a generator object.
-                   Defaults all weights to 1
+                   Defaults all weights to a normal distribution with mean 1.0
+                   and standard deviation of 0.2
         decoder -- A function that can code a list of SpikeTrains into a numeric
                    numpy array
         """
@@ -72,7 +73,8 @@ class Dense(Layer):
         if weights is not None:
             self.set_weights(weights)
         else:
-            self.set_weights(1)
+            random_weights = np.random.normal(1.0, 0.2, (pop_in.size, pop_out.size))
+            self.set_weights(random_weights)
 
         # Prepare spike recordings
         self.projection.pre.record('spikes')
@@ -94,10 +96,11 @@ class Dense(Layer):
 
         # Activation gradient for the output
         output_derived = self.gradient_model(output)
+        print("out", output_derived)
+        print("err", error)
         output_delta = np.multiply(output_derived, error)
 
         # Calculate weight delta and error
-        print("spikes: ", v.spike_count_normalised(self.spikes))
         input_layer = self.decoder(self.spikes)
         layer_delta = np.outer(input_layer, output_delta)
         error_weighted = np.multiply(self.weights, layer_delta)

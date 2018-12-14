@@ -5,12 +5,12 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def setup():
-    pynn.setup()
+    pynn.setup(rng_seeds_seed = 100)
 
 def test_gradient_optimiser_train_simple():
     p1 = pynn.Population(1, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax, weights = 1)
     model = v.Model(l)
     optimiser = v.GradientDescentOptimiser(0.1)
     xs = np.array([[1]])
@@ -32,7 +32,7 @@ def test_gradient_optimiser_train_simple():
 def test_gradient_optimiser_train():
     p1 = pynn.Population(3, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax, weights = 1)
     model = v.Model(l)
     optimiser = v.GradientDescentOptimiser(0.1)
     xs = np.array([[1, 0, 0], [1, 0, 0], [1, 0, 0]])
@@ -47,7 +47,7 @@ def test_gradient_optimiser_train():
 def test_gradient_optimiser_train_categorical():
     p1 = pynn.Population(3, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_softmax, weights = 1)
     model = v.Model(l)
     optimiser = v.GradientDescentOptimiser(0.1)
     xs = np.array([[1, 0, 0], [1, 0, 0], [1, 0, 0]])

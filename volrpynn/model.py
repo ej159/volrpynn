@@ -87,7 +87,7 @@ class Model(object):
         layer_output = np.copy(output)
         # Backprop through the layers
         for layer in reversed(self.layers):
-            layer_input, layer_error = layer.backward(layer_output, layer_error, optimiser)
+            layer_output, layer_error = layer.backward(layer_output, layer_error, optimiser)
         return layer_error
 
     def simulate(self, time):
@@ -103,8 +103,6 @@ class Model(object):
             layer.store_spikes()
         output_spikes = self.node_output.getSpikes().segments[-1].spiketrains
         output_values = self.layers[-1].decoder(output_spikes)
-        for i in self.input_populations:
-            print(v.spike_count(i.getSpikes().segments[-1].spiketrains))
         
         pynn().end()
         return output_values

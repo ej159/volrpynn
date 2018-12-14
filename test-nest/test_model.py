@@ -55,8 +55,7 @@ def test_nest_create_input_populations():
 def test_nest_model_predict_active():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    d = pynn.random.RandomDistribution('normal', mu=1, sigma=0.1)
-    l = v.Dense(p1, p2, v.relu_derived, weights = d, decoder = v.spike_count)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count, weights = 1)
     m = v.Model(l)
     out = m.predict(np.array([1, 1]), 1000)
     assert len(out) == 2
@@ -74,7 +73,8 @@ def test_nest_model_predict_inactive():
 def test_nest_model_backwards():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(3, pynn.IF_cond_exp())
-    l1 = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count_normalised)
+    l1 = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count_normalised,
+            weights = 1)
     m = v.Model(l1)
     xs = np.array([1, 1])
     spikes = m.predict(xs, 1000)
@@ -85,7 +85,7 @@ def test_nest_model_backwards():
 def test_nest_model_backwards_reset():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l1 = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_argmax)
+    l1 = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_argmax, weights = 1)
     m = v.Model(l1)
     xs1 = np.array([1, 1])
     ys1 = np.array([0, 1])

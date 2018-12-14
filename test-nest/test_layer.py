@@ -12,13 +12,14 @@ def test_nest_dense_create():
     p2 = pynn.Population(10, pynn.IF_cond_exp())
     d = v.Dense(p1, p2, v.relu_derived)
     expected_weights = np.ones((12, 10))
-    assert np.array_equal(d.projection.get('weight', format='array'),
-            expected_weights)
+    actual_weights = d.projection.get('weight', format='array')
+    assert not np.array_equal(actual_weights, expected_weights) # Should be normal distributed
+    assert abs(actual_weights.sum() - 120) <= 6
 
 def test_nest_dense_spikes_shape():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 10))
     p2 = pynn.Population(10, pynn.IF_cond_exp())
-    d = v.Dense(p1, p2, v.relu_derived)
+    d = v.Dense(p1, p2, v.relu_derived, weights = 1)
     pynn.run(1000)
     d.store_spikes()
     assert d.spikes.shape == (12,)
@@ -27,7 +28,7 @@ def test_nest_dense_projection():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 10))
     p2 = pynn.Population(10, pynn.IF_cond_exp())
     p2.record('spikes')
-    d = v.Dense(p1, p2, v.relu_derived)
+    d = v.Dense(p1, p2, v.relu_derived, weights = 1)
     pynn.run(1000)
     spiketrains = p2.get_data().segments[-1].spiketrains
     assert len(spiketrains) == 10
