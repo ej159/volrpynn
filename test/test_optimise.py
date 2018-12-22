@@ -9,7 +9,7 @@ class TestModel():
     def predict(self, x, t):
         self.called_predict += 1
         return x
-    def backward(self, output, error, backwards):
+    def backward(self, error, backwards):
         self.called_backward += 1
         return error
 

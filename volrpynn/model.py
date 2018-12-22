@@ -21,18 +21,13 @@ class Model(object):
         
         # Assign populations and layers
         self.node_input = layers[0].projection.pre
-        self.node_output = layers[-1].projection.post
         self.layers = layers
-
-        # Prepare recording
-        self.node_output.record('spikes')
 
         # Create input Poisson sources
         self.input_populations = []
         input_size = self.node_input.size
         for _ in range(input_size):
             population = pynn().Population(1, pynn().SpikeSourcePoisson(rate = 1.0))
-            population.record('spikes')
             self.input_populations.append(population)
             
         self.input_assembly = pynn().Assembly(*self.input_populations)
@@ -64,7 +59,7 @@ class Model(object):
         self.set_input(xs)
         return self.simulate(time)
 
-    def backward(self, output, error, optimiser):
+    def backward(self, error, optimiser):
         """Performs a backwards pass through the model *without* executing the
         simulation, which is assumed to happen *before* this method is called.
         This function has side-effects: while performing the backward pass,
@@ -73,8 +68,6 @@ class Model(object):
         Args:
         error -- The numerical error that the model should adjust to as a numpy
                  array
-        output -- The output from the model, with which to backpropagate, as a
-                  numpy array
         optimiser -- A function that calculates the new weights of a layer
                      given the current layer weights and the weights deltas
                      from the derived layer activation function
@@ -84,15 +77,15 @@ class Model(object):
         layer to the input layer.
         """
         layer_error = np.copy(error)
-        layer_output = np.copy(output)
         # Backprop through the layers
         for layer in reversed(self.layers):
-            layer_output, layer_error = layer.backward(layer_output, layer_error, optimiser)
+            layer_error = layer.backward(layer_error, optimiser)
         return layer_error
 
     def simulate(self, time):
         # Reset simulation and restore weights
         pynn().reset()
+
         for layer in self.layers:
             layer.restore_weights()
 
@@ -101,8 +94,7 @@ class Model(object):
         # Collect spikes
         for layer in self.layers:
             layer.store_spikes()
-        output_spikes = self.node_output.getSpikes().segments[-1].spiketrains
-        output_values = self.layers[-1].decoder(output_spikes)
+        output_values = self.layers[-1].get_output()
         
         pynn().end()
         return output_values

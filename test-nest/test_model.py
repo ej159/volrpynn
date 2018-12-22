@@ -64,7 +64,7 @@ def test_nest_model_predict_active():
 def test_nest_model_predict_inactive():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived)
+    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count)
     m = v.Model(l)
     out = m.predict(np.array([0, 0]), 1000)
     assert len(out) == 2
@@ -78,7 +78,7 @@ def test_nest_model_backwards():
     m = v.Model(l1)
     xs = np.array([1, 1])
     spikes = m.predict(xs, 1000)
-    m.backward(spikes, [0, 1, 1], lambda w, g: w - g) # no learning rate
+    m.backward([0, 1, 1], lambda w, g: w - g) # no learning rate
     expected_weights = np.array([[1, 0, 0], [1, 0, 0]])
     assert np.allclose(l1.get_weights(), expected_weights, atol=0.1)
 
@@ -93,11 +93,11 @@ def test_nest_model_backwards_reset():
     ys2 = np.array([0, 1])
     # First pass
     target1 = m.predict(xs1, 2000)
-    m.backward(ys1, [0, 1], lambda w, g: w - g)
+    m.backward([0, 1], lambda w, g: w - g)
     expected_weights = np.array([[1, 1], [1, 0]])
     assert np.allclose(l1.get_weights(), expected_weights)
     # Second pass
     target2 = m.predict(xs2, 2000)
-    m.backward(ys2, [0, 1], lambda w, g: w - g)
+    m.backward([0, 1], lambda w, g: w - g)
     expected_weights = np.array([[1, 0], [1, 0]])
     assert np.allclose(l1.get_weights(), expected_weights)

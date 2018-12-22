@@ -18,6 +18,10 @@ class Layer():
         activation derivative"""
         pass
 
+    def get_output(self):
+        """Returns a numpy array of the decoded output"""
+        return self.decoder(self.spikes)
+
     @abc.abstractmethod
     def get_weights(self):
         pass
@@ -38,12 +42,29 @@ class Layer():
         """Stores the spikes of the current run"""
         pass
 
+class Decode(Layer):
+    def __init__(self, pop_in, decoder = v.spike_argmax):
+        assert callable(decoder), "Decoder must be a function"
+        self.pop_in = pop_in
+        self.decoder = decoder
+        # Prepare population for recording
+        self.pop_in.record('spikes')
+        self.weights = np.ones(pop_in.size)
+
+    def backward(self, error, optimiser):
+        return error
+
+    def store_spikes(self):
+        self.spikes = self.pop_in.getSpikes().segments[-1].spiketrains
+        return self.spikes
+
 class Dense(Layer):
-    """A densely connected neural layer between two populations.
-       Assumes the PyNN projection is as an all-to-all connection."""
+    """A densely connected neural layer between two populations,
+       creating a PyNN all-to-all connection (projection) between the
+       populations."""
 
     def __init__(self, pop_in, pop_out, gradient_model, weights=None,
-            decoder=v.spike_count):
+            decoder=v.spike_softmax):
         """
         Initialises a densely connected layer between two populations
 
@@ -69,7 +90,7 @@ class Dense(Layer):
         assert callable(decoder), "spike decoder must be a function"
         self.decoder = decoder
 
-        # Assign given weights or default to 1
+        # Assign given weights or default to a normal distribution
         if weights is not None:
             self.set_weights(weights)
         else:
@@ -80,11 +101,10 @@ class Dense(Layer):
         self.projection.pre.record('spikes')
 
         
-    def backward(self, output, error, optimiser):
+    def backward(self, error, optimiser):
         """Backward pass in the dense layer
 
         Args:
-        output -- The output from the previous layer as a numpy array
         error -- The error in the output from this layer as a numpy array
         optimiser -- The optimiser that calculates the new layer weights, given
                      the current weights and the gradient deltas
@@ -94,23 +114,18 @@ class Dense(Layer):
         """
         assert callable(optimiser), "Optimiser must be callable"
 
-        # Activation gradient for the output
+        # Calculate weight delta
+        output = self.decoder(self.spikes)
         output_derived = self.gradient_model(output)
-        print("out", output_derived)
-        print("err", error)
-        output_delta = np.multiply(output_derived, error)
-
-        # Calculate weight delta and error
-        input_layer = self.decoder(self.spikes)
-        layer_delta = np.outer(input_layer, output_delta)
-        error_weighted = np.multiply(self.weights, layer_delta)
+        backprop_error = np.multiply(output_derived, np.matmul(self.weights, error))
 
         # Optimise weights and store
-        new_weights = optimiser(self.weights, layer_delta)
+        weights_delta = np.outer(output, error)
+        new_weights = optimiser(self.weights, weights_delta)
         self.set_weights(new_weights)
         
         # Return errors changes in backwards layer
-        return input_layer, error_weighted.sum(axis=1)
+        return backprop_error
 
     def get_weights(self):
         return self.weights

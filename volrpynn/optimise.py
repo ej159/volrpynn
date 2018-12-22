@@ -108,6 +108,6 @@ class GradientDescentOptimiser(Optimiser):
             actual_ys.append(output)
             # Backward pass
             error = output - target_y
-            model.backward(output, error, calculate_weights)
+            model.backward(error, calculate_weights)
             
         return model, actual_ys

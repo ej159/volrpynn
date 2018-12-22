@@ -74,11 +74,26 @@ def test_nest_dense_restore():
 def test_nest_dense_backprop():
     p1 = pynn.Population(4, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, weights = 1)
+    l = v.Dense(p1, p2, v.relu_derived, weights = 1, decoder = v.spike_count)
     old_weights = l.get_weights()
     l.spikes = np.ones((4, 1)) # Mock spikes
-    _, errors = l.backward(np.array([1, 1]), np.array([0, 1]), lambda w, g: w - g)
+    errors = l.backward(np.array([0, 1]), lambda w, g: w - g)
     expected_errors = np.ones((4,))
     assert np.allclose(errors, expected_errors)
     expected_weights = np.tile([1, 0], (4, 1))
     assert np.allclose(l.get_weights(), expected_weights)
+
+# def test_nest_dense_error():
+#     xs = np.array([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, ]])
+#     ws = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
+#     ys = np.array([[1408.0, 1624.0, 1840.0, 2056.0],
+#                    [1926.0, 2220.0, 2514.0, 2808.0],
+#                    [2444.0, 2816.0, 3188.0, 3560.0]])
+#     p1 = pynn.Population(4, pynn.IF_cond_exp())
+#     p2 = pynn.Population(3, pynn.IF_cond_exp())
+#     l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count)
+#     for i in range(3):
+#         l.set_weights(ws[i])
+#         l.spikes = xs[i]
+#         l.backward(ys)
+# 

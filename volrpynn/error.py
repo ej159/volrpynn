@@ -5,6 +5,12 @@ import abc
 import numpy as np
 import volrpynn.activation
 
+def cross_entropy(output, labels):
+    return np.multiply(labels, np.log(output)).sum()
+
+def cross_entropy_derived(output, labels):
+    return - labels / output
+
 def sum_squared_error(output, labels):
     return (output - labels) ** 2
 

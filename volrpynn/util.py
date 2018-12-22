@@ -1,5 +1,5 @@
 import addict
-import sys
+import sys, os
 
 def clean_parameters(parameters):
     del parameters['type']
@@ -153,3 +153,4 @@ def get_pynn():
     else:
         raise RuntimeError("""VolrPyNN not initialised correctly, please import
 like so: import volrpynn.[backend], example: import volrpynn.nest""")
+
