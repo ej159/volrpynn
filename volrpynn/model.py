@@ -76,7 +76,7 @@ class Model(object):
         The error (loss) from the input layer after backpropagation from the output
         layer to the input layer.
         """
-        layer_error = np.copy(error)
+        layer_error = error
         # Backprop through the layers
         for layer in reversed(self.layers):
             layer_error = layer.backward(layer_error, optimiser)

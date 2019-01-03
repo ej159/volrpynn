@@ -20,7 +20,7 @@ class Layer():
 
     def get_output(self):
         """Returns a numpy array of the decoded output"""
-        return self.decoder(self.spikes)
+        return self.decoder(self.output)
 
     @abc.abstractmethod
     def get_weights(self):
@@ -42,6 +42,26 @@ class Layer():
         """Stores the spikes of the current run"""
         pass
 
+# Decoder  = forward pass
+# Gradient model = backward pass
+# Include rate forward pass
+# - Check that it performs as a regular AI
+# Rearrange to have linearity -> nonlinearity
+# Demonstrate scientifically novelty
+#  - Convenience
+#  - Interoperability
+#    - ONNX?
+#  - So far: repackaged in-the-loop training idea
+#  - Next: More complicated ways to use spikes
+#    - NN to calculate weight update: meta learning
+#    - Instead of static learning, do it parameterised 
+#
+# Define a task to test against
+# From a high level: Getting something with a spiking neural network and an ANN
+# that does the learning
+# Idea: Transform n-dimensional signal to fewer neurons
+#   -> Consider internal weight update mechanisms as parameterised, to be learned
+
 class Decode(Layer):
     def __init__(self, pop_in, decoder = v.spike_argmax):
         assert callable(decoder), "Decoder must be a function"
@@ -55,8 +75,8 @@ class Decode(Layer):
         return error
 
     def store_spikes(self):
-        self.spikes = self.pop_in.getSpikes().segments[-1].spiketrains
-        return self.spikes
+        self.output = np.array(self.pop_in.getSpikes().segments[-1].spiketrains)
+        return self
 
 class Dense(Layer):
     """A densely connected neural layer between two populations,
@@ -67,7 +87,7 @@ class Dense(Layer):
             decoder=v.spike_softmax):
         """
         Initialises a densely connected layer between two populations
-
+output
         Args:
         pop_in -- The input population
         pop_out -- The output population
@@ -79,6 +99,8 @@ class Dense(Layer):
         decoder -- A function that can code a list of SpikeTrains into a numeric
                    numpy array
         """
+        self.pop_in = pop_in
+        self.pop_out = pop_out
         self.projection = pynn().Projection(pop_in, pop_out,
                 pynn().AllToAllConnector(allow_self_connections=True))
 
@@ -99,7 +121,7 @@ class Dense(Layer):
 
         # Prepare spike recordings
         self.projection.pre.record('spikes')
-
+        self.projection.post.record('spikes')
         
     def backward(self, error, optimiser):
         """Backward pass in the dense layer
@@ -114,19 +136,32 @@ class Dense(Layer):
         """
         assert callable(optimiser), "Optimiser must be callable"
 
-        # Calculate weight delta
-        output = self.decoder(self.spikes)
-        output_derived = self.gradient_model(output)
-        backprop_error = np.multiply(output_derived, np.matmul(self.weights, error))
+        try:
+            self.input
+        except AttributeError:
+            raise RuntimeError("No input data found. Please simulate the model" + 
+                               " before doing a backward pass")
 
-        # Optimise weights and store
-        weights_delta = np.outer(output, error)
+        # Calculate activations for output layer
+        input_decoded = self.decoder(self.input)
+        output_activations = np.matmul(input_decoded, self.weights)
+        
+        # Calculate layer delta and weight optimisations
+        delta = np.multiply(error, self.gradient_model(output_activations))
+        # Ensure correct multiplication of data
+        if len(input_decoded.shape) == 1:
+            weights_delta = np.outer(input_decoded, delta)
+        else:
+            weights_delta = np.matmul(input_decoded.T, delta)
+
+        # Calculate weight optimisation and store
         new_weights = optimiser(self.weights, weights_delta)
         self.set_weights(new_weights)
         
         # Return errors changes in backwards layer
-        return backprop_error
-
+        backprop = np.matmul(delta, self.weights.T)
+        return backprop
+    
     def get_weights(self):
         return self.weights
 
@@ -135,9 +170,11 @@ class Dense(Layer):
         self.weights = self.projection.get('weight', format='array')
 
     def store_spikes(self):
-        segments = self.projection.pre.get_data('spikes').segments
-        self.spikes = np.array(segments[-1].spiketrains)
-        return self.spikes
+        segments_in = self.projection.pre.get_data('spikes').segments
+        self.input = np.array(segments_in[-1].spiketrains)
+        segments_out = self.projection.post.get_data('spikes').segments
+        self.output = np.array(segments_out[-1].spiketrains)
+        return self
 
 #class MergeLayer(Layer):
 

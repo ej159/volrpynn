@@ -34,12 +34,13 @@ def test_nest_projection_gaussian():
 def test_nest_input_projection():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived)
+    l = v.Dense(p1, p2, v.relu_derived, weights = 1)
     m = v.Model(l)
+    assert np.allclose(l.get_weights(), np.ones((2, 2)))
     assert m.input_projection[0].weight == 1
     assert m.input_projection[1].weight == 1
     m.predict([1, 1], 2000)
-    spiketrains = l.spikes
+    spiketrains = l.output
     assert abs(len(spiketrains[0]) - len(spiketrains[1])) <= 20
  
 def test_nest_create_input_populations():
@@ -79,7 +80,7 @@ def test_nest_model_backwards():
     xs = np.array([1, 1])
     spikes = m.predict(xs, 1000)
     m.backward([0, 1, 1], lambda w, g: w - g) # no learning rate
-    expected_weights = np.array([[1, 0, 0], [1, 0, 0]])
+    expected_weights = np.array([[1, -1, -1], [1, -1, -1]])
     assert np.allclose(l1.get_weights(), expected_weights, atol=0.1)
 
 def test_nest_model_backwards_reset():

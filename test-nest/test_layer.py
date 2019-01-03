@@ -16,13 +16,14 @@ def test_nest_dense_create():
     assert not np.array_equal(actual_weights, expected_weights) # Should be normal distributed
     assert abs(actual_weights.sum() - 120) <= 6
 
-def test_nest_dense_spikes_shape():
+def test_nest_dense_shape():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 10))
     p2 = pynn.Population(10, pynn.IF_cond_exp())
     d = v.Dense(p1, p2, v.relu_derived, weights = 1)
     pynn.run(1000)
     d.store_spikes()
-    assert d.spikes.shape == (12,)
+    assert d.input.shape == (12,)
+    assert d.output.shape[0] == 10
 
 def test_nest_dense_projection():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 10))
@@ -46,6 +47,24 @@ def test_nest_dense_reduced_weight_fire():
     spiketrains = p2.get_data().segments[-1].spiketrains
     assert len(spiketrains) == 1
     assert spiketrains[0].size > 0
+
+def test_nest_dense_increased_weight_fire():
+    p1 = pynn.Population(1, pynn.SpikeSourcePoisson(rate = 1))
+    p2 = pynn.Population(1, pynn.IF_cond_exp())
+    p2.record('spikes')
+    d = v.Dense(p1, p2, v.relu_derived, weights = 2)
+    pynn.run(1000)
+    spiketrains = p2.get_data().segments[-1].spiketrains
+    count1 = spiketrains[0].size
+    pynn.reset()
+    p1 = pynn.Population(1, pynn.SpikeSourcePoisson(rate = 1))
+    p2 = pynn.Population(1, pynn.IF_cond_exp())
+    p2.record('spikes')
+    d = v.Dense(p1, p2, v.relu_derived, weights = 2)
+    pynn.run(1000)
+    spiketrains = p2.get_data().segments[-1].spiketrains
+    count2 = spiketrains[0].size
+    assert count2 >= count1 * 2 
 
 def test_nest_dense_chain():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 100))
@@ -74,26 +93,122 @@ def test_nest_dense_restore():
 def test_nest_dense_backprop():
     p1 = pynn.Population(4, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, weights = 1, decoder = v.spike_count)
+    l = v.Dense(p1, p2, lambda x: x, weights = 1, decoder = lambda x: x)
     old_weights = l.get_weights()
-    l.spikes = np.ones((4, 1)) # Mock spikes
-    errors = l.backward(np.array([0, 1]), lambda w, g: w - g)
-    expected_errors = np.ones((4,))
+    l.input = np.ones((1, 4)) # Mock spikes
+    errors = l.backward(np.array([[0, 1]]), lambda w, g: w - g)
+    expected_errors = np.ones((4,)) - 13
     assert np.allclose(errors, expected_errors)
-    expected_weights = np.tile([1, 0], (4, 1))
+    expected_weights = np.tile([1, -3], (4, 1))
     assert np.allclose(l.get_weights(), expected_weights)
 
+def test_nest_dense_numerical_gradient():
+    # Test idea from https://github.com/stephencwelch/Neural-Networks-Demystified/blob/master/partSix.py
+    # Use simple power function
+    f = lambda x: x**2
+    fd = lambda x: 2 * x
+    e = 1e-4
+
+    weights1 = np.ones((2, 3)).ravel()
+    weights2 = np.ones((3, 1)).ravel()
+
+    p1 = pynn.Population(2, pynn.IF_cond_exp())
+    p2 = pynn.Population(3, pynn.IF_cond_exp())
+    p3 = pynn.Population(1, pynn.IF_cond_exp())
+    l1 = v.Dense(p1, p2, v.sigmoid_derived, decoder = lambda x: x)
+    l2 = v.Dense(p2, p3, v.sigmoid_derived, decoder = lambda x: x)
+    m = v.Model(l1, l2)
+    error = v.SumSquared()
+
+    def forward_pass(xs):
+        "Simple sigmoid forward pass function"
+        l1.input = xs
+        l1.output = l2.input = v.sigmoid(np.matmul(xs, l1.weights))
+        l2.output = v.sigmoid(np.matmul(l2.input, l2.weights))
+        return l2.output
+
+    def compute_numerical_gradient(xs, ys):
+        "Computes the numerical gradient of a layer"
+        weights1 = l1.get_weights().ravel() # 1D
+        weights2 = l2.get_weights().ravel()
+        weights = np.concatenate((weights1, weights2))
+        gradients = np.zeros(weights.shape)
+
+        def initialise_with_distortion(index, delta):
+            distortion = np.copy(weights)
+            distortion[index] = distortion[index] + delta
+            l1.set_weights(distortion[:len(weights1)].reshape(l1.weights.shape))
+            l2.set_weights(distortion[len(weights1):].reshape(l2.weights.shape))
+            forward_pass(xs)
+
+        # Calculate gradients
+        for index in range(len(weights)):
+            initialise_with_distortion(index, e)
+            error1 = error(l2.output, ys)
+            initialise_with_distortion(index, -e)
+            error2 = error(l2.output, ys)
+            gradients[index] = (error2 - error1) / (2 * e)
+        
+        # Reset weights
+        l1.set_weights(weights1.reshape(2, 3))
+        l2.set_weights(weights2.reshape(3, 1))
+
+        return gradients
+
+    def compute_gradients(xs, ys):
+        class GradientOptimiser():
+            counter = 2
+            gradients1 = None
+            gradients2 = None
+            def __call__(self, w, g):
+                if self.counter > 1:
+                    self.gradients2 = g
+                else: 
+                    self.gradients1 = g
+                self.counter -= 1
+                return w
+        output = forward_pass(xs)
+        optimiser = GradientOptimiser()
+        m.backward(error.prime(l2.output, ys), optimiser)
+        return np.concatenate((optimiser.gradients1.ravel(), optimiser.gradients2.ravel()))
+
+    # Normalise inputs
+    xs = np.array(([3,5], [5,1], [10,2]), dtype=float)
+    xs = xs - np.amax(xs, axis=0)
+    ys = np.array(([75], [82], [93]), dtype=float)
+    ys = ys / 100
+
+    # Calculate numerical gradients
+    numerical_gradients = compute_numerical_gradient(xs, ys)
+    # Calculate 'normal' gradients
+    gradients = compute_gradients(xs, ys)
+    # Calculate the ratio between the difference and the sum of vector norms
+    ratio = np.linalg.norm(gradients - numerical_gradients) /\
+               np.linalg.norm(gradients + numerical_gradients)
+    assert ratio < 1e-07
+     
+ 
 # def test_nest_dense_error():
-#     xs = np.array([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, ]])
-#     ws = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
-#     ys = np.array([[1408.0, 1624.0, 1840.0, 2056.0],
-#                    [1926.0, 2220.0, 2514.0, 2808.0],
-#                    [2444.0, 2816.0, 3188.0, 3560.0]])
 #     p1 = pynn.Population(4, pynn.IF_cond_exp())
 #     p2 = pynn.Population(3, pynn.IF_cond_exp())
-#     l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count)
+#     l = v.Dense(p1, p2, lambda x: x, decoder = lambda x: x)
+# 
+#     xs = np.array([[1.0, 2.0, 3.0, 4.0],
+#             [2.0, 3.0, 4.0, 5.0],
+#             [9.0, 10.0, 11.0, 12.0]])
+#     ws = np.array([[1.0,  2.0,  3.0,  4.0],
+#             [5.0,  6.0,  7.0,  8.0],
+#             [9.0, 10.0, 11.0, 12.0]])
+#     zs = np.multiply(ws, xs)
+#     ys = zs.sum(axis=1) # Mock identity
+#     es = np.array([[1408.0, 1624.0, 1840.0, 2056.0],
+#         [1926.0, 2220.0, 2514.0, 2808.0],
+#         [2444.0, 2816.0, 3188.0, 3560.0]])
 #     for i in range(3):
-#         l.set_weights(ws[i])
-#         l.spikes = xs[i]
-#         l.backward(ys)
+#         l.input = xs[i]
+#         l.output = zs[i]
+#         l.set_weights(ws.T)
+#         es_a = l.backward(ys, lambda x, y: x)
+#         assert np.allclose(es[i], es_a)
+# 
 # 

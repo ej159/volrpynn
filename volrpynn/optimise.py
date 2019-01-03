@@ -86,20 +86,23 @@ class GradientDescentOptimiser(Optimiser):
 
         Args:
         model -- The model to test
-        x -- An array of input rates for the input neurons
-        target_y -- The expected output as an array of numbers
+        xs -- An array of input rates for the input neurons
+        ys -- The expected output as an array of numbers
+        error_function -- The function to calculate the loss of the predictions
 
         Returns:
         The predicted output of the model
         """
         return model.predict(x, self.simulation_time)
 
-    def train(self, model, xs, ys):
+    def train(self, model, xs, ys, error_function):
         assert len(xs) == len(ys),  """Length of input data ({}) must be the same as output data ({})""".format(len(xs), len(ys))
+        assert isinstance(error_function, ErrorFunction), "Error function must \
+be an instance of the ErrorFunction class"
 
         # Define update function
         def calculate_weights(weights, deltas):
-            return weights - (np.multiply(self.learning_rate, deltas))
+            return weights + (np.multiply(self.learning_rate, deltas))
 
         actual_ys = []
         for x, target_y in zip(xs, ys):
@@ -107,7 +110,7 @@ class GradientDescentOptimiser(Optimiser):
             output = self.test_single(model, x, target_y)
             actual_ys.append(output)
             # Backward pass
-            error = output - target_y
+            error = error_function.prime(output, target_y)
             model.backward(error, calculate_weights)
             
         return model, actual_ys
