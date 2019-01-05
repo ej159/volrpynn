@@ -17,14 +17,6 @@ class ErrorFunction():
     def prime(self, output, labels):
         pass
 
-class CrossEntropy(ErrorFunction):
-
-    def __call__(self, output, labels):
-        return np.multiply(labels, np.log(output))
-
-    def prime(self, output, labels):
-        return - labels / output
-
 class SumSquared(ErrorFunction):
 
     def __call__(self, output, labels):
@@ -32,13 +24,28 @@ class SumSquared(ErrorFunction):
         return 0.5 * ((output - labels) ** 2).sum(axis=0)
 
     def prime(self, output, labels):
-        return -(output - labels)
+        return (output - labels)
 
-def argmax_index(xs, randomise_ties=True):
-    max_value = xs.max()
-    non_zero_indices = np.flatnonzero(xs == max_value)
+class CrossEntropy(ErrorFunction):
 
-    if randomise_ties:
-        return np.random.choice(non_zero_indices)
-    else:
-        return non_zero_indices[0]
+    epsilon = 1e-8
+
+    def __call__(self, output, labels):
+        return - (np.log(output + epsilon) * labels).sum()
+
+    def prime(self, output, labels):
+        return - labels / output
+
+class SoftmaxCrossEntropy(ErrorFunction):
+
+    def softmax(self, x):
+        shifted = x - np.max(x)
+        e_x = np.exp(shifted)
+        return (e_x / e_x.sum(axis = 0))
+
+    def __call__(self, output, labels):
+        return CrossEntropy()(self.softmax(output), labels)
+
+    def prime(self, output, labels):
+        return self.softmax(output) - labels
+

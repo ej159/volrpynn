@@ -147,7 +147,9 @@ output
         output_activations = np.matmul(input_decoded, self.weights)
         
         # Calculate layer delta and weight optimisations
-        delta = np.multiply(error, self.gradient_model(output_activations))
+        output_gradients = self.gradient_model(output_activations)
+        delta = np.multiply(error, output_gradients)
+
         # Ensure correct multiplication of data
         if len(input_decoded.shape) == 1:
             weights_delta = np.outer(input_decoded, delta)

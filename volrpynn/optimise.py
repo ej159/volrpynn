@@ -27,12 +27,12 @@ class Optimiser():
         ys -- The expected label data as a numpy array where the first dimension
               describes the number of training instances and the second dimension
               the expected neuron output.
-        loss_function -- A function that takes the predicted output of the model
-                         and calculates numerical values for how 'wrong' that 
-                         output is, compared to the y labels
-
+        error_function -- A function that takes the predicted output of the model
+                          and calculates numerical values for how 'wrong' that 
+                          output is, compared to the y labels
+        
         Returns:
-        A tuple of a trained Model and a list of predicted outputs
+        A tuple of the trained model and a list of prediction errors
         """
         pass
 
@@ -54,12 +54,11 @@ class GradientDescentOptimiser(Optimiser):
         self.learning_rate = learning_rate
         self.simulation_time = simulation_time
 
-    def test(self, model, xs, ys):
+    def test(self, model, xs, ys, report = None):
         """Test the model with the given input and expected output. 
         The error function calculates the error rate, given the predicted
         and expected (target) output.
-        The output is a list of booleans that indicates whether the output
-        was the same as the expected (True) or not (False).
+        The output is a report of type Report.
 
         Args:
         model -- The model to test
@@ -69,16 +68,17 @@ class GradientDescentOptimiser(Optimiser):
         ys -- The expected (target) output data as a 2-dimensional array
               where the first dimension is the separate data entries and
               the second dimension is the expected predicted output
+        report -- A Report with an associated cost function to calculate 
+                  the model score. Defaults to SumSquared
 
         Returns:
         A list of booleans
         """
-        hits = []
+        report = ErrorCost(SumSquared()) if report == None else report
         for x, target_y in zip(xs, ys):
             output = self.test_single(model, x, target_y)
-            hit = np.allclose(output, target_y)
-            hits.append(hit)
-        return hits
+            report.add(output, target_y)
+        return report
 
     def test_single(self, model, x, target_y):
         """Tests a single data entry by simulating the input 'x' and
@@ -102,15 +102,15 @@ be an instance of the ErrorFunction class"
 
         # Define update function
         def calculate_weights(weights, deltas):
-            return weights + (np.multiply(self.learning_rate, deltas))
+            return weights - (np.multiply(self.learning_rate, deltas))
 
-        actual_ys = []
+        errors = []
         for x, target_y in zip(xs, ys):
             # Forward pass
             output = self.test_single(model, x, target_y)
-            actual_ys.append(output)
+            errors.append(error_function(output, target_y))
             # Backward pass
             error = error_function.prime(output, target_y)
             model.backward(error, calculate_weights)
             
-        return model, actual_ys
+        return model, errors

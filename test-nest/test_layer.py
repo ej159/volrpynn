@@ -144,9 +144,9 @@ def test_nest_dense_numerical_gradient():
         # Calculate gradients
         for index in range(len(weights)):
             initialise_with_distortion(index, e)
-            error1 = error(l2.output, ys)
+            error1 = -error(l2.output, ys)
             initialise_with_distortion(index, -e)
-            error2 = error(l2.output, ys)
+            error2 = -error(l2.output, ys)
             gradients[index] = (error2 - error1) / (2 * e)
         
         # Reset weights

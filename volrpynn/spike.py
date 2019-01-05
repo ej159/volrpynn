@@ -11,7 +11,8 @@ def spike_count_normalised(spiketrains, interval_max = 1.0):
     interval between 0 and a maximum value (that must be positive"""
     assert interval_max > 0, "Maximum interval value must be above 0"
     lengths = np.array(list(map(len, spiketrains)))
-    return lengths / np.max(lengths)
+    spike_max = np.max(lengths)
+    return lengths / np.max(lengths) if spike_max > 0 else lengths
 
 def spike_softmax(spiketrains):
     """Finds the softmax of a list of spiketrains by counting the spike rate

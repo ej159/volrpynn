@@ -11,4 +11,5 @@ def sigmoid(output):
     return 1.0 / (1.0 + np.exp(-output)) 
 
 def sigmoid_derived(output):
-    return np.exp(-output) / ((1 + np.exp(-output)) ** 2)
+    s = sigmoid(output)
+    return s * (1 - s)

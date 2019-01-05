@@ -16,17 +16,17 @@ def test_gradient_optimiser_train_simple():
     xs = np.array([[1]])
     ys = np.array([[1, 0]])
     m, y = optimiser.train(model, xs, ys, v.SumSquared())
-    assert np.allclose(y, np.array([[1, 1]]))
+    assert np.allclose(l.get_output(), np.array([[1, 1]]))
     assert np.allclose(l.get_weights(), np.array([[1, 0.9]]))
     xs = np.array([[1]])
     ys = np.array([[0, 1]])
     m, y = optimiser.train(model, xs, ys, v.SumSquared())
-    assert np.allclose(y, np.array([[1, 0.95]]), atol=0.01)
+    assert np.allclose(l.get_output(), np.array([[1, 0.95]]), atol=0.01)
     assert np.allclose(l.get_weights(), np.array([[0.9, 0.9]]), atol=0.01) # Weaken left
     xs = np.array([[1]])
     ys = np.array([[1, 0]])
     m, y = optimiser.train(model, xs, ys, v.SumSquared())
-    assert np.allclose(y, np.array([[0.99, 1]]), atol=0.01)
+    assert np.allclose(l.get_output(), np.array([[0.99, 1]]), atol=0.01)
     assert np.allclose(l.get_weights(), np.array([[0.9, 0.81]]), atol=0.01) # Weaken right
 
 # def test_gradient_optimiser_train():
