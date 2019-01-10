@@ -4,3 +4,4 @@ neo
 pyNN
 nose
 tkinter
+torch
