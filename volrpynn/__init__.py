@@ -29,4 +29,6 @@ from . import layer
 from .layer import *
 from . import model
 from .model import *
+from . import main
+from .main import *
 

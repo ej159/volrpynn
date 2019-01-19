@@ -53,6 +53,7 @@ class GradientDescentOptimiser(Optimiser):
         """
         self.learning_rate = learning_rate
         self.simulation_time = simulation_time
+        self.iterations = 1
 
     def test(self, model, xs, ys, report = None):
         """Test the model with the given input and expected output. 
@@ -100,17 +101,25 @@ class GradientDescentOptimiser(Optimiser):
         assert isinstance(error_function, ErrorFunction), "Error function must \
 be an instance of the ErrorFunction class"
 
-        # Define update function
-        def calculate_weights(weights, deltas):
-            return weights - (np.multiply(self.learning_rate, deltas))
+        import time
 
         errors = []
         for x, target_y in zip(xs, ys):
             # Forward pass
             output = self.test_single(model, x, target_y)
-            errors.append(error_function(output, target_y))
+            error_forward = error_function(output, target_y)
+            errors.append(error_forward)
+
             # Backward pass
-            error = error_function.prime(output, target_y)
-            model.backward(error, calculate_weights)
+            error_prime = error_function.prime(output, target_y)
+            # Define update optimisation function
+            def optimise_weights(weights, weight_gradients, biases,
+                    bias_gradients):
+                wg = np.multiply(self.learning_rate, weight_gradients)
+                bg = np.multiply(self.learning_rate, bias_gradients)
+                return (weights - wg, biases - bg)
+
+            model.backward(error_prime, optimise_weights)
+            self.iterations += 1
             
         return model, errors

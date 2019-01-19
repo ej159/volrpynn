@@ -10,16 +10,16 @@ def setup():
 def test_nest_dense_create():
     p1 = pynn.Population(12, pynn.IF_cond_exp())
     p2 = pynn.Population(10, pynn.IF_cond_exp())
-    d = v.Dense(p1, p2, v.relu_derived)
+    d = v.Dense(p1, p2, v.ReLU())
     expected_weights = np.ones((12, 10))
     actual_weights = d.projection.get('weight', format='array')
-    assert not np.array_equal(actual_weights, expected_weights) # Should be normal distributed
-    assert abs(actual_weights.sum() - 120) <= 6
+    assert not np.allclose(actual_weights, expected_weights) # Should be normal distributed
+    assert abs(actual_weights.sum()) <= 24
 
 def test_nest_dense_shape():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 10))
     p2 = pynn.Population(10, pynn.IF_cond_exp())
-    d = v.Dense(p1, p2, v.relu_derived, weights = 1)
+    d = v.Dense(p1, p2, v.ReLU(), weights = 1)
     pynn.run(1000)
     d.store_spikes()
     assert d.input.shape == (12,)
@@ -29,7 +29,7 @@ def test_nest_dense_projection():
     p1 = pynn.Population(12, pynn.SpikeSourcePoisson(rate = 10))
     p2 = pynn.Population(10, pynn.IF_cond_exp())
     p2.record('spikes')
-    d = v.Dense(p1, p2, v.relu_derived, weights = 1)
+    d = v.Dense(p1, p2, v.ReLU(), weights = 1)
     pynn.run(1000)
     spiketrains = p2.get_data().segments[-1].spiketrains
     assert len(spiketrains) == 10
@@ -42,7 +42,7 @@ def test_nest_dense_reduced_weight_fire():
     p1 = pynn.Population(2, pynn.SpikeSourcePoisson(rate = 1))
     p2 = pynn.Population(1, pynn.IF_cond_exp())
     p2.record('spikes')
-    d = v.Dense(p1, p2, v.relu_derived, weights = np.array([[1], [0]]))
+    d = v.Dense(p1, p2, v.ReLU(), weights = np.array([[1], [0]]))
     pynn.run(1000)
     spiketrains = p2.get_data().segments[-1].spiketrains
     assert len(spiketrains) == 1
@@ -52,7 +52,7 @@ def test_nest_dense_increased_weight_fire():
     p1 = pynn.Population(1, pynn.SpikeSourcePoisson(rate = 1))
     p2 = pynn.Population(1, pynn.IF_cond_exp())
     p2.record('spikes')
-    d = v.Dense(p1, p2, v.relu_derived, weights = 2)
+    d = v.Dense(p1, p2, v.ReLU(), weights = 2)
     pynn.run(1000)
     spiketrains = p2.get_data().segments[-1].spiketrains
     count1 = spiketrains[0].size
@@ -60,7 +60,7 @@ def test_nest_dense_increased_weight_fire():
     p1 = pynn.Population(1, pynn.SpikeSourcePoisson(rate = 1))
     p2 = pynn.Population(1, pynn.IF_cond_exp())
     p2.record('spikes')
-    d = v.Dense(p1, p2, v.relu_derived, weights = 2)
+    d = v.Dense(p1, p2, v.ReLU(), weights = 2)
     pynn.run(1000)
     spiketrains = p2.get_data().segments[-1].spiketrains
     count2 = spiketrains[0].size
@@ -71,15 +71,15 @@ def test_nest_dense_chain():
     p2 = pynn.Population(10, pynn.IF_cond_exp())
     p3 = pynn.Population(2, pynn.IF_cond_exp())
     p3.record('spikes')
-    d1 = v.Dense(p1, p2, v.relu_derived)
-    d2 = v.Dense(p2, p3, v.relu_derived)
+    d1 = v.Dense(p1, p2, v.ReLU())
+    d2 = v.Dense(p2, p3, v.ReLU())
     pynn.run(1000)
     assert len(p3.get_data().segments[-1].spiketrains) > 0
 
 def test_nest_dense_restore():
     p1 = pynn.Population(12, pynn.IF_cond_exp())
     p2 = pynn.Population(10, pynn.IF_cond_exp())
-    d = v.Dense(p1, p2, v.relu_derived, weights = 2)
+    d = v.Dense(p1, p2, v.ReLU(), weights = 2)
     d.set_weights(-1)
     assert np.array_equal(d.projection.get('weight', format='array'),
              np.ones((12, 10)) * -1)
@@ -93,10 +93,10 @@ def test_nest_dense_restore():
 def test_nest_dense_backprop():
     p1 = pynn.Population(4, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, lambda x: x, weights = 1, decoder = lambda x: x)
+    l = v.Dense(p1, p2, v.UnitActivation(), weights = 1, decoder = lambda x: x)
     old_weights = l.get_weights()
     l.input = np.ones((1, 4)) # Mock spikes
-    errors = l.backward(np.array([[0, 1]]), lambda w, g: w - g)
+    errors = l.backward(np.array([[0, 1]]), lambda w, g, b, bg: (w - g, b - bg))
     expected_errors = np.ones((4,)) - 13
     assert np.allclose(errors, expected_errors)
     expected_weights = np.tile([1, -3], (4, 1))
@@ -115,16 +115,16 @@ def test_nest_dense_numerical_gradient():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(3, pynn.IF_cond_exp())
     p3 = pynn.Population(1, pynn.IF_cond_exp())
-    l1 = v.Dense(p1, p2, v.sigmoid_derived, decoder = lambda x: x)
-    l2 = v.Dense(p2, p3, v.sigmoid_derived, decoder = lambda x: x)
+    l1 = v.Dense(p1, p2, v.Sigmoid(), decoder = lambda x: x)
+    l2 = v.Dense(p2, p3, v.Sigmoid(), decoder = lambda x: x)
     m = v.Model(l1, l2)
     error = v.SumSquared()
 
     def forward_pass(xs):
         "Simple sigmoid forward pass function"
         l1.input = xs
-        l1.output = l2.input = v.sigmoid(np.matmul(xs, l1.weights))
-        l2.output = v.sigmoid(np.matmul(l2.input, l2.weights))
+        l1.output = l2.input = v.Sigmoid()(np.matmul(xs, l1.weights))
+        l2.output = v.Sigmoid()(np.matmul(l2.input, l2.weights))
         return l2.output
 
     def compute_numerical_gradient(xs, ys):
@@ -160,13 +160,13 @@ def test_nest_dense_numerical_gradient():
             counter = 2
             gradients1 = None
             gradients2 = None
-            def __call__(self, w, g):
+            def __call__(self, w, wg, b, bg):
                 if self.counter > 1:
-                    self.gradients2 = g
+                    self.gradients2 = wg
                 else: 
-                    self.gradients1 = g
+                    self.gradients1 = wg
                 self.counter -= 1
-                return w
+                return (w, b)
         output = forward_pass(xs)
         optimiser = GradientOptimiser()
         m.backward(error.prime(l2.output, ys), optimiser)

@@ -1,15 +1,44 @@
 """
 A module for derived activation functions
 """
+import abc
 import numpy as np
 
-def relu_derived(output):
-    output[output < 0] = 0 # ReLU gradient
-    return output
+class ActivationFunction():
+    """An activation function with a forward and backward (derived) pass"""
 
-def sigmoid(output):
-    return 1.0 / (1.0 + np.exp(-output)) 
+    @abc.abstractmethod
+    def __call__(self, activation):
+        """Computes the activation given some input"""
 
-def sigmoid_derived(output):
-    s = sigmoid(output)
-    return s * (1 - s)
+    @abc.abstractmethod
+    def prime(self, activation):
+        """The derived version of the activation function"""
+
+class UnitActivation(ActivationFunction):
+
+    def __call__(self, activation):
+        return activation
+
+    def prime(self, activation):
+        return activation
+
+class ReLU(ActivationFunction):
+    """The Rectified Linear Unit activation function"""
+
+    def __call__(self, activation):
+        return np.maximum(0, activation)
+
+    def prime(self, activation):
+        activation_copy = np.copy(activation)
+        activation_copy[activation_copy < 0] = 0 # ReLU gradient
+        return activation_copy
+
+class Sigmoid(ActivationFunction):
+
+    def __call__(self, activation):
+        return 1.0 / (1.0 + np.exp(-activation))
+
+    def prime(self, activation):
+        sigmoid = self(activation)
+        return sigmoid * (1 - sigmoid)

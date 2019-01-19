@@ -14,6 +14,11 @@ def spike_count_normalised(spiketrains, interval_max = 1.0):
     spike_max = np.max(lengths)
     return lengths / np.max(lengths) if spike_max > 0 else lengths
 
+def spike_rate(simulation_time):
+    def spiketrains_rate(trains):
+        return np.array(list(map(lambda t: len(t) / simulation_time, trains)))
+    return spiketrains_rate
+
 def spike_softmax(spiketrains):
     """Finds the softmax of a list of spiketrains by counting the spike rate
 

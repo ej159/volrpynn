@@ -6,4 +6,7 @@ This module sets up the PyNN simulator, irrespective of the backend.
 """
 
 def setup(pynn):
-    pynn.setup(rng_seeds_seed = 100, local_num_threads = 32)
+    # Use true randomness 
+    from multiprocessing import cpu_count
+    pynn.setup(rng_seeds_seed = 1,  
+               local_num_threads = cpu_count())

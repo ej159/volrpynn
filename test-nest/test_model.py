@@ -1,3 +1,4 @@
+import json
 import volrpynn.nest as v
 import pyNN.nest as pynn
 import numpy as np
@@ -34,7 +35,7 @@ def test_nest_projection_gaussian():
 def test_nest_input_projection():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, weights = 1)
+    l = v.Dense(p1, p2, v.ReLU(), weights = 1)
     m = v.Model(l)
     assert np.allclose(l.get_weights(), np.ones((2, 2)))
     assert m.input_projection[0].weight == 1
@@ -46,17 +47,17 @@ def test_nest_input_projection():
 def test_nest_create_input_populations():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived)
+    l = v.Dense(p1, p2, v.ReLU())
     m = v.Model(l)
     assert len(m.input_populations) == 2
     m.set_input([1, 0.2])
-    assert m.input_populations[0].get('rate') == 1.0
-    assert m.input_populations[1].get('rate') == 0.2
+    assert m.input_populations[0].get('i_offset') == 1.0
+    assert m.input_populations[1].get('i_offset') == 0.2
 
 def test_nest_model_predict_active():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count, weights = 1)
+    l = v.Dense(p1, p2, v.ReLU(), decoder = v.spike_count, weights = 1)
     m = v.Model(l)
     out = m.predict(np.array([1, 1]), 1000)
     assert len(out) == 2
@@ -65,7 +66,7 @@ def test_nest_model_predict_active():
 def test_nest_model_predict_inactive():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count)
+    l = v.Dense(p1, p2, v.ReLU(), decoder = v.spike_count)
     m = v.Model(l)
     out = m.predict(np.array([0, 0]), 1000)
     assert len(out) == 2
@@ -74,31 +75,32 @@ def test_nest_model_predict_inactive():
 def test_nest_model_backwards():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(3, pynn.IF_cond_exp())
-    l1 = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_count_normalised,
+    l1 = v.Dense(p1, p2, v.ReLU(), decoder = v.spike_count_normalised,
             weights = 1)
     m = v.Model(l1)
     xs = np.array([1, 1])
     spikes = m.predict(xs, 1000)
-    m.backward([0, 1, 1], lambda w, g: w - g) # no learning rate
+    m.backward([0, 1, 1], lambda w, g, b, bg: (w - g, b - bg)) # no learning rate
     expected_weights = np.array([[1, -1, -1], [1, -1, -1]])
     assert np.allclose(l1.get_weights(), expected_weights, atol=0.1)
 
 def test_nest_model_backwards_reset():
     p1 = pynn.Population(2, pynn.IF_cond_exp())
     p2 = pynn.Population(2, pynn.IF_cond_exp())
-    l1 = v.Dense(p1, p2, v.relu_derived, decoder = v.spike_argmax, weights = 1)
+    l1 = v.Dense(p1, p2, v.ReLU(), decoder = v.spike_count_normalised, weights = 1)
     m = v.Model(l1)
     xs1 = np.array([1, 1])
     ys1 = np.array([0, 1])
     xs2 = np.array([1, 1])
     ys2 = np.array([0, 1])
     # First pass
-    target1 = m.predict(xs1, 2000)
-    m.backward([0, 1], lambda w, g: w - g)
-    expected_weights = np.array([[1, 1], [1, 0]])
+    target1 = m.predict(xs1, 700)
+    m.backward([0, 1], lambda w, g, b, bg: (w - g, b - bg))
+    expected_weights = np.array([[1, -1], [1, -1]])
     assert np.allclose(l1.get_weights(), expected_weights)
     # Second pass
-    target2 = m.predict(xs2, 2000)
-    m.backward([0, 1], lambda w, g: w - g)
-    expected_weights = np.array([[1, 0], [1, 0]])
+    target2 = m.predict(xs2, 700)
+    m.backward([0, 1], lambda w, g, b, bg: (w - g, b - bg))
+    expected_weights = np.array([[1, -1], [1, -1]])
     assert np.allclose(l1.get_weights(), expected_weights)
+

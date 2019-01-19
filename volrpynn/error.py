@@ -5,6 +5,8 @@ import abc
 import numpy as np
 import volrpynn.activation
 
+epsilon = 1e-8
+
 class ErrorFunction():
     """An error function consists of a function that calculates the error
     between some actual and expected output, as well as a derived version of
@@ -27,8 +29,6 @@ class SumSquared(ErrorFunction):
         return (output - labels)
 
 class CrossEntropy(ErrorFunction):
-
-    epsilon = 1e-8
 
     def __call__(self, output, labels):
         return - (np.log(output + epsilon) * labels).sum()
