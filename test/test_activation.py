@@ -9,6 +9,6 @@ def test_relu_derived():
 
 def test_sigmoid_derived():
     out = np.array([[0], [1], [2]])
-    actual = v.sigmoid_derived(out)
+    actual = v.Sigmoid().prime(out)
     expected = np.array([[0.25], [0.19661193], [0.10499359]])
     assert np.allclose(actual, expected)
