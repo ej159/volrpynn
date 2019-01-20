@@ -44,14 +44,22 @@ class Layer():
         assert callable(decoder), "spike decoder must be a function"
         self.decoder = decoder
 
+    @staticmethod
+    def _is_tuple(data, name, allow_none=False):
+        """Tests that the given data is a tuple. If not, raise an exception
+        using 'name'"""
+        if (not data and not allow_none) and \
+           (not isinstance(data, (tuple, list)) or len(data) != 2):
+            raise ValueError(name + " must be tuple of length two")
+
     @abc.abstractmethod
     def backward(self, error, optimiser):
         """Performs backwards optimisation based on the given error and
         activation derivative"""
 
+    @abc.abstractmethod
     def get_output(self):
         """Returns a numpy array of the decoded output"""
-        return self.decoder(self.output)
 
     def get_weights(self):
         """Returns the weights as a matrix of size (input, output)"""
@@ -59,7 +67,7 @@ class Layer():
 
     def restore_weights(self):
         """Restores the current weights of the layer"""
-        self.set_weights(self.weights)
+        self.set_weights(self.get_weights())
         return self.weights
 
     @abc.abstractmethod
@@ -79,6 +87,9 @@ class Decode(Layer):
 
     def backward(self, error, optimiser):
         return error
+
+    def get_output(self):
+        return self.decoder(self.output)
 
     def set_weights(self, weights):
         return self.weights
@@ -102,10 +113,11 @@ output
 
         self.input = None
 
-        # Prepare spike recordings
-        self.projection = pynn().Projection(pop_in, pop_out,
-                                            pynn().AllToAllConnector(allow_self_connections=False))
+        # Create a projection between the input and output populations
+        connector = pynn().AllToAllConnector(allow_self_connections=False)
+        self.projection = pynn().Projection(pop_in, pop_out, connector)
 
+        # Prepare spike recordings
         self.pop_in.record('spikes')
         self.pop_out.record('spikes')
 
@@ -167,6 +179,9 @@ output
         backprop = np.matmul(delta, self.weights.T)
         return backprop
 
+    def get_output(self):
+        return self.decoder(self.output)
+
     def get_weights(self):
         return self.weights
 
@@ -182,78 +197,94 @@ output
         return self
 
 class Merge(Layer):
+    """A merge layer that takes a tuple of input layers and
+    uniforms them into a single output population by connecting them densely.
+    In practice this happens by creating two dense layers between the two
+    input populations and the output population."""
 
-    def __is_tuple(x, name):
-        assert type(x) is list or type(x) is tuple and len(x) == 2, \
-            name + " must be tuple of length two"
+    def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
+                 decoder=v.spike_count_normalised):
+        super(Merge, self).__init__(pop_in, pop_out, gradient_model, decoder)
+        Layer._is_tuple(pop_in, "Input populations")
 
-    def __init__(self, pop_in, pop_out, gradient_model = v.ReLU(), weights = None, decoder
-            = v.spike_softmax, wta = True):
-        super(Merge, self).__init__(pop_in, pop_out, gradient_model, decoder,
-                wta)
+        if pop_in[0].size + pop_in[1].size != pop_out.size:
+            raise ValueError("Population input sizes must equal population output size")
 
-        self.__is_tuple(pop_in, "Input populations")
-        self.__is_tuple(weights, "Layer weights")
+        self.layer1 = v.Dense(pop_in[0], pop_out, gradient_model=gradient_model,
+                              weights=weights[0], decoder=decoder)
+        self.layer2 = v.Dense(pop_in[1], pop_out, gradient_model=gradient_model,
+                              weights=weights[1], decoder=decoder)
 
-        # Connect and prepare spike recordings
-        connection_list1 = list(permutations(range(pop_in[0].size,pop_in[0].size), 2))
-   #     connection_list2 = list(permutations(range(pop_in[0].size[(x, x + pop_in[0].size) for x in range(pop_in[1].size)]
-        #self.projection1 = pynn().Projection(pop_in[0], pop_out,
-        #        pynn().FromListConnector(connection_list1))
-        #self.projection2 = pynn().Projection(pop_in[1], pop_out,
-        #        pynn().FromListConnector(connection_list2))
-        self.pop_in[0].record('spikes')
-        self.pop_in[1].record('spikes')
-        self.pop_out.record('spikes')
+    def backward(self, error, optimiser):
+        l1_error = self.layer1.backward(error, optimiser)
+        l2_error = self.layer2.backward(error, optimiser)
+        return (l1_error, l2_error)
 
-        if weights is not None:
-            self.set_weights(weights)
-        else:
-            random_weights = np.random.normal(0, 1, (pop_in.size, pop_out.size))
-            self.set_weights(random_weights)
+    def get_output(self):
+        # Layer1 output == layer2 output, because the population is the same
+        return self.layer1.get_output()
 
     def get_weights(self):
-        return self.weights
+        return (self.layer1.get_weights(), self.layer2.get_weights())
 
     def set_weights(self, weights):
-        self.__is_tuple(weights, "Layer weights")
-        #self.projection1.set(weight = weights[0])
-        #self.projection1.set(weight = weights[1])
-        self.weights = weights
+        Layer._is_tuple(weights, "Layer weights")
+        self.layer1.set_weights(weights[0])
+        self.layer2.set_weights(weights[1])
+
+    def store_spikes(self):
+        self.layer1.store_spikes()
+        self.layer2.store_spikes()
 
 class Replicate(Layer):
-    
-    def __is_tuple(self, x, name):
-        assert type(x) is list or type(x) is tuple and len(x) == 2, \
-            name + " must be tuple of length two"
+    """A replicate layer that takes a single population and copies the outputs
+    to the two output populations. In practice this happens by creating two dense
+    layers between the input population and the output populations."""
 
-    def __init__(self, pop_in, pop_out, gradient_model = v.ReLU(), weights = None, decoder
-            = v.spike_softmax):
+    def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
+                 decoder=v.spike_count_normalised):
         super(Replicate, self).__init__(pop_in, pop_out, gradient_model, decoder)
+        Layer._is_tuple(pop_out, "Output populations")
+        Layer._is_tuple(weights, "Replicate layer weights", allow_none=True)
 
-        self.__is_tuple(pop_out, "Output populations")
+        if not pop_out[0].size == pop_out[1].size or \
+                (pop_out[0].size != pop_in.size):
+            raise ValueError("Output populations must be of the same size as input")
 
-        # Connect and prepare spike recordings
-        connection_list1 = [(x, x) for x in range(pop_out[0].size)]
-        #self.projection1 = pynn().Projection(pop_in[0], pop_out,
-        #        pynn().FromListConnector(connection_list1))
-        #self.projection2 = pynn().Projection(pop_in[1], pop_out,
-        #        pynn().FromListConnector(connection_list2))
-        self.pop_in.record('spikes')
-        self.pop_out[0].record('spikes')
-        self.pop_out[1].record('spikes')
+        self.layer1 = v.Dense(pop_in, self.pop_out[0],
+                              gradient_model=gradient_model, weights=1,
+                              decoder=decoder)
+        self.layer2 = v.Dense(pop_in, self.pop_out[0],
+                              gradient_model=gradient_model, weights=1,
+                              decoder=decoder)
 
+        # Assign given weights or default to a normal distribution
         if weights is not None:
             self.set_weights(weights)
         else:
-            random_weights = np.random.normal(0, 1, (pop_in.size, pop_out.size))
+            random_weights = np.random.normal(0, 0.5, (2, pop_in.size, pop_out[0].size))
             self.set_weights(random_weights)
+
+
+    def backward(self, error, optimiser):
+        Layer._is_tuple(error, "Backwards error in replicate layer")
+        l1_error = self.layer1.backward(error, optimiser)
+        l2_error = self.layer1.backward(error, optimiser)
+        return l1_error + l2_error
+
+    def get_output(self):
+        l1_output = self.layer1.get_output()
+        l2_output = self.layer2.get_output()
+        return np.array([l1_output, l2_output])
 
     def get_weights(self):
         return self.weights
 
     def set_weights(self, weights):
-        self.__is_tuple(weights, "Layer weights")
-        #self.projection1.set(weight = weights[0])
-        #self.projection1.set(weight = weights[1])
         self.weights = weights
+        self.layer1.set_weights(weights[0])
+        self.layer2.set_weights(weights[1])
+
+    def store_spikes(self):
+        self.layer1.store_spikes()
+        self.layer2.store_spikes()

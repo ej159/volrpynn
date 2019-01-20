@@ -2,6 +2,7 @@
 The model of VolrPyNN
 """
 
+from volrpynn.layer import Dense, Replicate
 from volrpynn.util import get_pynn as pynn
 
 class Model():
@@ -29,8 +30,11 @@ class Model():
         if not layers:
             raise ValueError("Layers must not be empty")
 
+        if not isinstance(layers[0], (Dense, Replicate)):
+            raise ValueError("First layer must be a Dense or Replicate layer")
+
         # Assign populations and layers
-        self.node_input = layers[0].projection.pre
+        self.node_input = layers[0].pop_in
         self.layers = layers
 
         # Create input Poisson sources
