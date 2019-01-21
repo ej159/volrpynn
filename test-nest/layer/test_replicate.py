@@ -37,13 +37,4 @@ def test_replicate_can_replicate():
     expected = np.ones((2, 6))
     assert np.allclose(expected, l.get_output())
 
-def test_replicate_backward():
-    p0 = pynn.Population(6, pynn.IF_cond_exp())
-    p1 = pynn.Population(6, pynn.IF_cond_exp())
-    p2 = pynn.Population(6, pynn.IF_cond_exp())
-    p3 = pynn.Population(12, pynn.IF_cond_exp())
-    l1 = v.Replicate(p0, (p1, p2))
-    l2 = v.Merge((p1, p2), p3, v.ReLU(), weights=(1, 1))
-    m = v.Model(l1, l2)
-    m.simulate(1000)
-    m.backward(np.ones(12), lambda w, g, b, bg: (w, b))
+# For backward test, see test_merge.py

@@ -5,6 +5,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def setup():
+    pynn.reset()
     pynn.setup()
 
 def test_merge_assert_size():
@@ -31,6 +32,8 @@ def test_merge_create():
     assert l.layer1.input.shape == (6,)
     assert l.layer2.input.shape == (6,)
     assert l.get_output().shape[0] == 12
+    assert np.allclose(np.ones((6, 12)), l.layer1.weights)
+    assert np.allclose(np.ones((6, 12)), l.layer1.weights)
 
 def test_merge_stimulus():
     p1 = pynn.Population(6, pynn.SpikeSourcePoisson(rate = 10))
@@ -47,9 +50,10 @@ def test_merge_backwards():
     p1 = pynn.Population(6, pynn.IF_cond_exp())
     p2 = pynn.Population(6, pynn.IF_cond_exp())
     p3 = pynn.Population(12, pynn.IF_cond_exp())
-    l1 = v.Replicate(p0, (p1, p2))
-    l2 = v.Merge((p1, p2), p3, v.ReLU(), weights=(1, 1))
+    l1 = v.Replicate(p0, (p1, p2), weights=(1, 1))
+    l2 = v.Merge((p1, p2), p3, v.ReLU())
     m = v.Model(l1, l2)
-    m.simulate(1000)
-    m.backward(np.ones(12), lambda w, g, b, bg: (w, b))
-
+    m.predict(np.zeros(6) + 10, 1000)
+    error = m.backward(np.ones(12), lambda w, g, b, bg: (w, b))
+    assert error.shape == (6, )
+    assert np.allclose(np.zeros(6) + 60, error, atol=50)

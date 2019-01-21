@@ -104,18 +104,20 @@ class Dense(Layer):
        populations."""
 
     def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
-                 decoder=v.spike_count_normalised):
+                 decoder=v.spike_count_normalised, projection=None):
         """
         Initialises a densely connected layer between two populations
-output
+        output
         """
         super(Dense, self).__init__(pop_in, pop_out, gradient_model, decoder)
 
         self.input = None
 
         # Create a projection between the input and output populations
-        connector = pynn().AllToAllConnector(allow_self_connections=False)
-        self.projection = pynn().Projection(pop_in, pop_out, connector)
+        if not projection:
+            connector = pynn().AllToAllConnector(allow_self_connections=False)
+            projection = pynn().Projection(pop_in, pop_out, connector)
+        self.projection = projection
 
         # Prepare spike recordings
         self.pop_in.record('spikes')
@@ -210,6 +212,9 @@ class Merge(Layer):
         if pop_in[0].size + pop_in[1].size != pop_out.size:
             raise ValueError("Population input sizes must equal population output size")
 
+        if not weights:
+            weights = (None, None)
+
         self.layer1 = v.Dense(pop_in[0], pop_out, gradient_model=gradient_model,
                               weights=weights[0], decoder=decoder)
         self.layer2 = v.Dense(pop_in[1], pop_out, gradient_model=gradient_model,
@@ -251,12 +256,18 @@ class Replicate(Layer):
                 (pop_out[0].size != pop_in.size):
             raise ValueError("Output populations must be of the same size as input")
 
+        connector = pynn().AllToAllConnector(allow_self_connections=False)
+        projection1 = pynn().Projection(pop_in, pop_out[0], connector)
+        projection2 = pynn().Projection(pop_in, pop_out[1], connector)
+
         self.layer1 = v.Dense(pop_in, self.pop_out[0],
-                              gradient_model=gradient_model, weights=1,
-                              decoder=decoder)
-        self.layer2 = v.Dense(pop_in, self.pop_out[0],
-                              gradient_model=gradient_model, weights=1,
-                              decoder=decoder)
+                              gradient_model=gradient_model,
+                              weights=1, # Reset later
+                              decoder=decoder, projection=projection1)
+        self.layer2 = v.Dense(pop_in, self.pop_out[1],
+                              gradient_model=gradient_model,
+                              weights=1, # Reset later
+                              decoder=decoder, projection=projection2)
 
         # Assign given weights or default to a normal distribution
         if weights is not None:
@@ -265,12 +276,11 @@ class Replicate(Layer):
             random_weights = np.random.normal(0, 0.5, (2, pop_in.size, pop_out[0].size))
             self.set_weights(random_weights)
 
-
     def backward(self, error, optimiser):
         Layer._is_tuple(error, "Backwards error in replicate layer")
-        l1_error = self.layer1.backward(error, optimiser)
-        l2_error = self.layer1.backward(error, optimiser)
-        return l1_error + l2_error
+        l1_error = self.layer1.backward(error[0], optimiser)
+        l2_error = self.layer2.backward(error[1], optimiser)
+        return (l1_error + l2_error) / 2 # Return the mean
 
     def get_output(self):
         l1_output = self.layer1.get_output()
