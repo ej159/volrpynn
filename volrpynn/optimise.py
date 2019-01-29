@@ -6,7 +6,6 @@ based on stimulus and expected output
 import abc
 import numpy
 from volrpynn import *
-import sys
 
 class Optimiser():
     """An optimizer that, given a model, can train it to perform better on a
