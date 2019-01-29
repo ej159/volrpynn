@@ -6,6 +6,7 @@ based on stimulus and expected output
 import abc
 import numpy
 from volrpynn import *
+import sys
 
 class Optimiser():
     """An optimizer that, given a model, can train it to perform better on a
@@ -56,9 +57,7 @@ class GradientDescentOptimiser(Optimiser):
         self.iterations = 1
 
     def test(self, model, xs, ys, report = None):
-        """Test the model with the given input and expected output. 
-        The error function calculates the error rate, given the predicted
-        and expected (target) output.
+        """Test the model with the given input and expected output.
         The output is a report of type Report.
 
         Args:
@@ -73,7 +72,7 @@ class GradientDescentOptimiser(Optimiser):
                   the model score. Defaults to SumSquared
 
         Returns:
-        A list of booleans
+        A report of the output values and accuracy for hitting the target
         """
         report = ErrorCost(SumSquared()) if report == None else report
         for x, target_y in zip(xs, ys):
@@ -101,25 +100,25 @@ class GradientDescentOptimiser(Optimiser):
         assert isinstance(error_function, ErrorFunction), "Error function must \
 be an instance of the ErrorFunction class"
 
-        import time
-
         errors = []
         for x, target_y in zip(xs, ys):
             # Forward pass
             output = self.test_single(model, x, target_y)
             error_forward = error_function(output, target_y)
+
             errors.append(error_forward)
 
             # Backward pass
             error_prime = error_function.prime(output, target_y)
+
             # Define update optimisation function
-            def optimise_weights(weights, weight_gradients, biases,
-                    bias_gradients):
+            def optimise_weights(weights, weight_gradients,
+                                 biases, bias_gradients):
                 wg = np.multiply(self.learning_rate, weight_gradients)
                 bg = np.multiply(self.learning_rate, bias_gradients)
                 return (weights - wg, biases - bg)
 
             model.backward(error_prime, optimise_weights)
             self.iterations += 1
-            
+
         return model, errors

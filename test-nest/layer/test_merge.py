@@ -56,4 +56,4 @@ def test_merge_backwards():
     m.predict(np.zeros(6) + 10, 1000)
     error = m.backward(np.ones(12), lambda w, g, b, bg: (w, b))
     assert error.shape == (6, )
-    assert np.allclose(np.zeros(6) + 60, error, atol=50)
+    assert np.allclose(np.zeros(6) + 240, error, atol=150)

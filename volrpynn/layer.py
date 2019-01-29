@@ -58,6 +58,11 @@ class Layer():
         activation derivative"""
 
     @abc.abstractmethod
+    def get_biases(self):
+        """Returns the layer biases, or a list of zeros of the same shape as the
+        output layer if the layer does not have biases"""
+
+    @abc.abstractmethod
     def get_output(self):
         """Returns a numpy array of the decoded output"""
 
@@ -83,10 +88,13 @@ class Decode(Layer):
 
     def __init__(self, pop_in, decoder=v.spike_softmax):
         super(Decode, self).__init__(pop_in, None, v.UnitActivation(), decoder)
-        self.weights = np.ones(pop_in)
+        self.weights = np.ones(pop_in.size)
 
     def backward(self, error, optimiser):
         return error
+
+    def get_biases(self):
+        return np.zeros((self.pop_in.size))
 
     def get_output(self):
         return self.decoder(self.output)
@@ -104,7 +112,7 @@ class Dense(Layer):
        populations."""
 
     def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
-                 decoder=v.spike_count_normalised, projection=None):
+                 biases=0, decoder=v.spike_count_normalised, projection=None):
         """
         Initialises a densely connected layer between two populations
         output
@@ -127,10 +135,15 @@ class Dense(Layer):
         if weights is not None:
             self.set_weights(weights)
         else:
-            random_weights = np.random.normal(0, 0.5, (pop_in.size, pop_out.size))
+            random_weights = np.random.normal(0, 1, (pop_in.size, pop_out.size))
             self.set_weights(random_weights)
 
-        self.biases = np.zeros(pop_out.size)
+        if isinstance(biases, np.ndarray):
+            self.biases = biases
+        elif biases:
+            self.biases = np.repeat(biases, pop_out.size)
+        else:
+            self.biases = np.zeros(pop_out.size)
 
     def backward(self, error, optimiser):
         """Backward pass in the dense layer
@@ -171,8 +184,9 @@ class Dense(Layer):
 
         # NEST cannot handle too large weight values, so this guard
         # ensures that the simulation keeps running, despite large weights
-        new_weights[new_weights > 1000] = 1000
-        new_weights[new_weights < -1000] = -1000
+        new_weights = np.nan_to_num(new_weights)
+        new_weights[new_weights > 1000] = 10.0
+        new_weights[new_weights < -1000] = -10.0
 
         self.set_weights(new_weights)
         self.biases = new_biases
@@ -181,11 +195,11 @@ class Dense(Layer):
         backprop = np.matmul(delta, self.weights.T)
         return backprop
 
+    def get_biases(self):
+        return self.biases
+
     def get_output(self):
         return self.decoder(self.output)
-
-    def get_weights(self):
-        return self.weights
 
     def set_weights(self, weights):
         self.projection.set(weight=weights)
@@ -224,6 +238,9 @@ class Merge(Layer):
         l1_error = self.layer1.backward(error, optimiser)
         l2_error = self.layer2.backward(error, optimiser)
         return (l1_error, l2_error)
+
+    def get_biases(self):
+        return np.concatenate((self.layer1.get_biases(), self.layer2.get_biases()))
 
     def get_output(self):
         # Layer1 output == layer2 output, because the population is the same
@@ -273,7 +290,7 @@ class Replicate(Layer):
         if weights is not None:
             self.set_weights(weights)
         else:
-            random_weights = np.random.normal(0, 0.5, (2, pop_in.size, pop_out[0].size))
+            random_weights = np.random.normal(0, 1.0, (2, pop_in.size, pop_out[0].size))
             self.set_weights(random_weights)
 
     def backward(self, error, optimiser):
@@ -281,6 +298,9 @@ class Replicate(Layer):
         l1_error = self.layer1.backward(error[0], optimiser)
         l2_error = self.layer2.backward(error[1], optimiser)
         return (l1_error + l2_error) / 2 # Return the mean
+
+    def get_biases(self):
+        return (self.layer1.get_biases(), self.layer2.get_biases())
 
     def get_output(self):
         l1_output = self.layer1.get_output()

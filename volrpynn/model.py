@@ -2,8 +2,10 @@
 The model of VolrPyNN
 """
 
+import numpy as np
 from volrpynn.layer import Dense, Replicate
 from volrpynn.util import get_pynn as pynn
+from volrpynn.activation import ReLU
 
 class Model():
     """A model of a neural network experiment"""
@@ -41,7 +43,7 @@ class Model():
         self.input_populations = []
         input_size = self.node_input.size
         for _ in range(input_size):
-            population = pynn().Population(1, pynn().IF_curr_alpha(i_offset=0.0))
+            population = pynn().Population(1, pynn().IF_cond_exp(i_offset=0.0))
             self.input_populations.append(population)
 
         self.input_assembly = pynn().Assembly(*self.input_populations)
@@ -49,29 +51,6 @@ class Model():
         self.input_projection = pynn().Projection(self.input_assembly,
                                                   self.node_input, pynn().OneToOneConnector(),
                                                   pynn().StaticSynapse(weight=1.0))
-
-    def set_input(self, poisson_rates):
-        """Assigns the vector of poisson rates to the input neurons, that inject
-        spikes into the model"""
-        assert len(poisson_rates) == len(self.input_populations),\
-                "Input dimension ({}) must match input node size ({})"\
-                  .format(len(poisson_rates), len(self.input_populations))
-        for index, rate in enumerate(poisson_rates):
-            self.input_populations[index].set(i_offset=rate)
-
-    def predict(self, rates, time):
-        """Predicts an output by simulating the model with the given input
-
-        Args:
-            rates -- A list of Poisson rates, with the same dimension as the
-                     input layer
-            time -- The number of time to run the simulation in milliseconds
-
-        Returns:
-            An array of neo.core.SpikeTrains from the output layer
-        """
-        self.set_input(rates)
-        return self.simulate(time)
 
     def backward(self, error, optimiser):
         """Performs a backwards pass through the model *without* executing the
@@ -96,6 +75,32 @@ class Model():
             layer_error = layer.backward(layer_error, optimiser)
         return layer_error
 
+    def normalise_weights(self, data, activation_model=ReLU()):
+        """Normalises the weights for the model by adjusting the weights
+        relative to the maximum activations of the layers"""
+        previous_activations = data
+        for layer in self.layers:
+            weights = layer.get_weights()
+            potential = np.matmul(previous_activations, weights) + layer.get_biases()
+            activations = activation_model(potential)
+            weights *= (previous_activations.max() / max(1, activations.max()))
+            layer.set_weights(weights)
+            previous_activations = activations
+
+    def predict(self, rates, time):
+        """Predicts an output by simulating the model with the given input
+
+        Args:
+            rates -- A list of Poisson rates, with the same dimension as the
+                     input layer
+            time -- The number of time to run the simulation in milliseconds
+
+        Returns:
+            An array of neo.core.SpikeTrains from the output layer
+        """
+        self.set_input(rates)
+        return self.simulate(time)
+
     def reset(self):
         """Resets the PyNN simulation backend and all the recorded weights and
            spiketrains"""
@@ -107,6 +112,15 @@ class Model():
         # Reset recorders
         for recorder in pynn().simulator.state.recorders:
             recorder.clear()
+
+    def set_input(self, poisson_rates):
+        """Assigns the vector of poisson rates to the input neurons, that inject
+        spikes into the model"""
+        assert len(poisson_rates) == len(self.input_populations),\
+                "Input dimension ({}) must match input node size ({})"\
+                  .format(len(poisson_rates), len(self.input_populations))
+        for index, rate in enumerate(poisson_rates):
+            self.input_populations[index].set(i_offset=rate)
 
     def simulate(self, time):
         """Reset simulation and restore weights"""
