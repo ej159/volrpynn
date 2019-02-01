@@ -17,25 +17,25 @@ class Main():
         for index in range(len(self.model.layers) - 1):
             layer = self.model.layers[index]
             weights, biases = parameters[:2]
+            sys.stderr.write("S" + str(weights.shape) + " " + str(biases.shape))
             layer.biases = biases
-            layer.set_weights(weights.T)
+            layer.set_weights(weights)
             # Continue with next element in tuple
             parameters = parameters[2:]
 
-    def _normalise_data(self, data):
-        """Normalises the data according to a linear model for spiking neuron
-        activation, where f(x) = 3.225x - 1.613"""
-        # Normalise the data to [1;10]
-        data /= data.max()
-        data *= 20
-        data += 5
-        # Scale the data linearly
-        return (data + 1.61295370014) / 3.22500557
+    def _load_data(self):
+        if len(sys.argv) < 3:
+            raise Exception("Training input and training labels expected as "+\
+                            "either argument data or filenames")
+        xs_text, ys_text = (sys.argv[1], sys.argv[2])
+        if type(xs_text) == str and type(ys_text) == str:
+            return (self._load_file(xs_text), self._load_file(ys_text))
+        else:
+            return xs_text, ys_text
 
-    def _normalise_model_weights(self):
-        input_layer_size = self.model.node_input.size
-        input_data = np.ones((input_layer_size)) * 25
-        self.model.normalise_weights(input_data)
+    def _load_file(self, filename):
+        with open(filename, 'r') as fp:
+            return fp.read()
 
     def train(self, optimiser, xs=None, ys=None, split=0.8):
         """Trains and tests the model loaded in this class with the given
@@ -52,14 +52,9 @@ class Main():
         A Report of the training and testing run
         """
         if not isinstance(xs, np.ndarray) or not isinstance(ys, np.ndarray):
-            if len(sys.argv) < 3:
-                raise Exception("Training input and training labels expected via std in")
-            xs_text, ys_text = (sys.argv[1], sys.argv[2])
-            xs = self._normalise_data(np.array(json.loads(xs_text)))
-            ys = np.array(json.loads(ys_text))
-
-        # Normalise model weights
-        self._normalise_model_weights()
+            xs, ys = self._load_data()
+            xs = np.array(json.loads(xs))
+            ys = np.array(json.loads(ys))
 
         split = int(len(xs) * split)
         x_train = xs[:split]

@@ -39,14 +39,15 @@ def test_nest_dense_projection():
         assert abs(len(train) - avg_len) <= 1
 
 def test_nest_dense_reduced_weight_fire():
-    p1 = pynn.Population(2, pynn.SpikeSourcePoisson(rate = 1))
-    p2 = pynn.Population(1, pynn.IF_cond_exp())
-    p2.record('spikes')
-    d = v.Dense(p1, p2, v.ReLU(), weights = np.array([[1], [0]]))
+    p1 = pynn.Population(1, pynn.IF_cond_exp(i_offset=10))
+    p2 = pynn.Population(2, pynn.IF_cond_exp())
+    d = v.Dense(p1, p2, v.ReLU(), weights = np.array([[1, 0]]))
     pynn.run(1000)
-    spiketrains = p2.get_data().segments[-1].spiketrains
-    assert len(spiketrains) == 1
-    assert spiketrains[0].size > 0
+    spiketrains1 = p1.get_data().segments[-1].spiketrains
+    spiketrains2 = p2.get_data().segments[-1].spiketrains
+    assert spiketrains1[0].size > 0
+    assert spiketrains2[0].size > 0
+    assert spiketrains2[1].size == 0
 
 def test_nest_dense_increased_weight_fire():
     p1 = pynn.Population(1, pynn.SpikeSourcePoisson(rate = 1))
@@ -82,13 +83,13 @@ def test_nest_dense_restore():
     d = v.Dense(p1, p2, v.ReLU(), weights = 2)
     d.set_weights(-1)
     assert np.array_equal(d.projection.get('weight', format='array'),
-             np.ones((12, 10)) * -1)
+             d._normalise_weights(np.ones((12, 10)) * -1))
     d.projection.set(weight = 1) # Simulate reset()
     assert np.array_equal(d.projection.get('weight', format='array'),
             np.ones((12, 10)))
     d.restore_weights()
     assert np.array_equal(d.projection.get('weight', format='array'),
-            np.ones((12, 10)) * -1)
+            d._normalise_weights(np.ones((12, 10)) * -1))
 
 def test_nest_dense_backprop():
     p1 = pynn.Population(4, pynn.IF_cond_exp())

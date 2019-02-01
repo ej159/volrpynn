@@ -28,7 +28,7 @@ def test_replicate_create():
     assert l.get_output().shape == (2, 6)
 
 def test_replicate_can_replicate():
-    p1 = pynn.Population(6, pynn.SpikeSourcePoisson(rate = 10))
+    p1 = pynn.Population(6, pynn.IF_cond_exp(i_offset = 10))
     p2 = pynn.Population(6, pynn.IF_cond_exp())
     p3 = pynn.Population(6, pynn.IF_cond_exp())
     l = v.Replicate(p1, (p2, p3), v.ReLU(), weights=(1, 1))

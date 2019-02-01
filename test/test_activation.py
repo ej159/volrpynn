@@ -2,9 +2,9 @@ import numpy as np
 import volrpynn as v
 
 def test_relu_derived():
-    out = np.array([[-1], [0], [1]])
+    out = np.array([[-1], [0], [1], [12]])
     actual = v.ReLU().prime(out)
-    expected = np.array([[0], [0], [1]])
+    expected = np.array([[0], [0], [1], [1]])
     assert np.allclose(actual, expected)
 
 def test_sigmoid_derived():

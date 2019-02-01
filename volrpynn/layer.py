@@ -76,6 +76,10 @@ class Layer():
         return self.weights
 
     @abc.abstractmethod
+    def set_biases(self, biases):
+        """Sets the biases of the network layer"""
+
+    @abc.abstractmethod
     def set_weights(self, weights):
         """Sets the weights of the network layer"""
 
@@ -98,6 +102,9 @@ class Decode(Layer):
 
     def get_output(self):
         return self.decoder(self.output)
+
+    def set_biases(self, biases):
+        return biases
 
     def set_weights(self, weights):
         return self.weights
@@ -163,13 +170,14 @@ class Dense(Layer):
         except AttributeError:
             raise RuntimeError("No input data found. Please simulate the model" +
                                " before doing a backward pass")
-
+            
         # Calculate activations for output layer
         input_decoded = self.decoder(self.input)
         output_activations = np.matmul(input_decoded, self.weights)
 
         # Calculate layer delta and weight optimisations
-        output_gradients = self.gradient_model.prime(output_activations + self.biases)
+        normalised_biases = self._normalise_biases(self.biases)
+        output_gradients = self.gradient_model.prime(output_activations + normalised_biases)
         delta = np.multiply(error, output_gradients)
 
         # Ensure correct multiplication of data
@@ -185,8 +193,8 @@ class Dense(Layer):
         # NEST cannot handle too large weight values, so this guard
         # ensures that the simulation keeps running, despite large weights
         new_weights = np.nan_to_num(new_weights)
-        new_weights[new_weights > 1000] = 10.0
-        new_weights[new_weights < -1000] = -10.0
+        new_weights[new_weights > 100] = 100.0
+        new_weights[new_weights < -100] = -100.0
 
         self.set_weights(new_weights)
         self.biases = new_biases
@@ -201,9 +209,26 @@ class Dense(Layer):
     def get_output(self):
         return self.decoder(self.output)
 
+    def get_weights_normalised(self):
+        return self.projection.get('weight', format='array')
+
+    def _normalise_biases(self, biases):
+        return biases / self.pop_in.size
+
+    def _normalise_weights(self, weights):
+        """Normalise the weights, such that the neuron activations are roughly
+        following a linear progression"""
+        return weights * (0.06 / self.pop_in.size)
+
+    def set_biases(self, biases):
+        self.biases = biases
+
     def set_weights(self, weights):
-        self.projection.set(weight=weights)
-        self.weights = self.projection.get('weight', format='array')
+        if type(weights) == int:
+            weights = np.zeros((self.pop_in.size, self.pop_out.size)) + weights
+        self.weights = weights
+        normalised = self._normalise_weights(weights)
+        self.projection.set(weight=normalised)
 
     def store_spikes(self):
         segments_in = self.projection.pre.get_data('spikes').segments

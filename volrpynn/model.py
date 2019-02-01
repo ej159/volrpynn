@@ -5,21 +5,26 @@ The model of VolrPyNN
 import numpy as np
 from volrpynn.layer import Dense, Replicate
 from volrpynn.util import get_pynn as pynn
-from volrpynn.activation import ReLU
+from volrpynn.activation import ActivationFunction, ReLU
 
 class Model():
     """A model of a neural network experiment"""
 
     # These neuron parameters lead to a iaf_psc_alpha neuron that fires with a
     # constant rate of approximately f_out = I_e / 10.0
-    FIXED_RATE_NEURON = {'i_offset': 0.,        # constant input
-                         'tau_m': 82.,     # membrane time constant
-                         'v_thresh': -55.,     # threshold potential
-                         'v_rest': -70.,      # membrane resting potential
-                         'tau_refrac': 2.,      # refractory period
-                         'v_reset': -80.,  # reset potential
-                         'cm': 320.,      # membrane capacitance
-                         }      # initial membrane potential
+    FIXED_RATE_NEURON = {
+            "tau_syn_I":5,  # Decay time for inhibitory inputs
+            "tau_syn_E":5,  # Decay time for excitatory inputs
+            "tau_refrac":0, # Refractory period
+            "tau_m":20,     # Membrane time constant
+            "v_thresh":-50, # Voltage threshold
+            "v_rest":-65,   # Resting potential
+            "v_reset":-65,  # Reset potential
+            "e_rev_I":-70,  # Reverse potential for inhibitions
+            "e_rev_E":0,    # Reverse potential for excitations
+            "i_offset":0,   # Offset (constant) input current
+            "cm":1          # Membrane capacity
+        }
 
     def __init__(self, *layers):
         """Instantiates the model with a PyNN implementation and a Layer description
@@ -43,7 +48,7 @@ class Model():
         self.input_populations = []
         input_size = self.node_input.size
         for _ in range(input_size):
-            population = pynn().Population(1, pynn().IF_cond_exp(i_offset=0.0))
+            population = pynn().Population(1, pynn().IF_cond_exp(**self.FIXED_RATE_NEURON))
             self.input_populations.append(population)
 
         self.input_assembly = pynn().Assembly(*self.input_populations)
@@ -69,23 +74,23 @@ class Model():
         The error (loss) from the input layer after backpropagation from the output
         layer to the input layer.
         """
-        layer_error = error
         # Backprop through the layers
+        layer_error = error
         for layer in reversed(self.layers):
             layer_error = layer.backward(layer_error, optimiser)
+
         return layer_error
 
-    def normalise_weights(self, data, activation_model=ReLU()):
-        """Normalises the weights for the model by adjusting the weights
-        relative to the maximum activations of the layers"""
-        previous_activations = data
-        for layer in self.layers:
-            weights = layer.get_weights()
-            potential = np.matmul(previous_activations, weights) + layer.get_biases()
-            activations = activation_model(potential)
-            weights *= (previous_activations.max() / max(1, activations.max()))
-            layer.set_weights(weights)
-            previous_activations = activations
+    def _normalise_data(self, data):
+        """Normalises the data according to a linear model for spiking neuron
+        activation, where f(x) = 3.225x - 1.613"""
+        # Normalise the data to [1;40]
+        copy = data.copy().astype(np.float64)
+        copy /= max(1, data.max())
+        copy *= 39
+        copy += 1
+        # Scale the data linearly
+        return (copy + 1.61295370014) / 3.22500557
 
     def predict(self, rates, time):
         """Predicts an output by simulating the model with the given input
@@ -99,6 +104,7 @@ class Model():
             An array of neo.core.SpikeTrains from the output layer
         """
         self.set_input(rates)
+
         return self.simulate(time)
 
     def reset(self):
@@ -112,15 +118,16 @@ class Model():
         # Reset recorders
         for recorder in pynn().simulator.state.recorders:
             recorder.clear()
-
-    def set_input(self, poisson_rates):
-        """Assigns the vector of poisson rates to the input neurons, that inject
-        spikes into the model"""
-        assert len(poisson_rates) == len(self.input_populations),\
+    
+    def set_input(self, data):
+        """Assigns the vector of input current values to the input neurons"""
+        assert len(data) == len(self.input_populations),\
                 "Input dimension ({}) must match input node size ({})"\
-                  .format(len(poisson_rates), len(self.input_populations))
-        for index, rate in enumerate(poisson_rates):
-            self.input_populations[index].set(i_offset=rate)
+                  .format(len(data), len(self.input_populations))
+        normalised = self._normalise_data(np.array(data))
+        for index, x in enumerate(normalised):
+            self.input_populations[index].set(i_offset=x)
+        self.inputs = normalised
 
     def simulate(self, time):
         """Reset simulation and restore weights"""

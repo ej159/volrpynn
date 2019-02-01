@@ -30,8 +30,8 @@ class ReLU(ActivationFunction):
         return np.maximum(0, activation)
 
     def prime(self, activation):
-        activation_copy = np.copy(activation)
-        activation_copy[activation_copy < 0] = 0 # ReLU gradient
+        activation_copy = np.ones(activation.shape)
+        activation_copy[activation <= 0] = 0 # ReLU gradient
         return activation_copy
 
 class Sigmoid(ActivationFunction):

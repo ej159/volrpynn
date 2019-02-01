@@ -42,18 +42,20 @@ class GradientDescentOptimiser(Optimiser):
        with a given learning rate
     """
     
-    def __init__(self, learning_rate, simulation_time = 1000):
+    def __init__(self, learning_rate, batch_size=64, simulation_time=50):
         """Constructs a gradient descent optimiser given a learning rate
     
         Args:
         learning_rate -- The alpha parameter for the rate of weight changes
                          (learning)
+        batch_size -- The size of the batches to collate before the
+                      backpropagation step
         simulation_time -- Time in milliseconds how long each data point
                            be simulated. Defaults to 1000 ms
         """
         self.learning_rate = learning_rate
         self.simulation_time = simulation_time
-        self.iterations = 1
+        self.batch_size = batch_size
 
     def test(self, model, xs, ys, report = None):
         """Test the model with the given input and expected output.
@@ -87,7 +89,6 @@ class GradientDescentOptimiser(Optimiser):
         model -- The model to test
         xs -- An array of input rates for the input neurons
         ys -- The expected output as an array of numbers
-        error_function -- The function to calculate the loss of the predictions
 
         Returns:
         The predicted output of the model
@@ -99,25 +100,33 @@ class GradientDescentOptimiser(Optimiser):
         assert isinstance(error_function, ErrorFunction), "Error function must \
 be an instance of the ErrorFunction class"
 
-        errors = []
-        for x, target_y in zip(xs, ys):
-            # Forward pass
-            output = self.test_single(model, x, target_y)
-            error_forward = error_function(output, target_y)
+        # Define update optimisation function
+        def optimise_weights(weights, weight_gradients,
+                             biases, bias_gradients):
+            wg = np.multiply(self.learning_rate, weight_gradients)
+            bg = np.multiply(self.learning_rate, bias_gradients)
+            return (weights - wg, biases - bg)
 
-            errors.append(error_forward)
+        errors = []
+        offset = 0
+        while offset < len(xs):
+            batch_data = zip(xs[offset:offset + self.batch_size], 
+                             ys[offset:offset + self.batch_size])
+            error_forward = []
+            error_backward = []
+            # Forward pass
+            for x, target_y in batch_data:
+                output = self.test_single(model, x, target_y)
+                error_forward.append(error_function(output, target_y))
+                error_backward.append(error_function.prime(output, target_y))
+
+            error_forward_mean = np.array(error_forward).mean()
+            errors.append(error_forward_mean)
 
             # Backward pass
-            error_prime = error_function.prime(output, target_y)
+            error_backward_mean = np.array(error_backward).mean(axis=0)
+            model.backward(error_backward_mean, optimise_weights)
 
-            # Define update optimisation function
-            def optimise_weights(weights, weight_gradients,
-                                 biases, bias_gradients):
-                wg = np.multiply(self.learning_rate, weight_gradients)
-                bg = np.multiply(self.learning_rate, bias_gradients)
-                return (weights - wg, biases - bg)
-
-            model.backward(error_prime, optimise_weights)
-            self.iterations += 1
+            offset += self.batch_size
 
         return model, errors
