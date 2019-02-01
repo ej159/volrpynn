@@ -6,9 +6,12 @@ class TestModel():
     def __init__(self):
         self.called_predict = 0
         self.called_backward = 0
+        self.called_cache_reset = 0
     def predict(self, x, t):
         self.called_predict += 1
         return x
+    def reset_cache(self):
+        self.called_cache_reset += 1
     def backward(self, error, backwards):
         self.called_backward += 1
         return error
@@ -21,6 +24,7 @@ def test_gradient_descent_train():
     optimiser.test(model, xs, ys)
     assert model.called_predict == 10
     assert model.called_backward == 0
+    assert model.called_cache_reset == 0
 
 def test_gradient_descent_test():
     model = TestModel()
@@ -31,3 +35,4 @@ def test_gradient_descent_test():
     optimiser.train(model, xs, ys, error)
     assert model.called_predict == 10
     assert model.called_backward == 10
+    assert model.called_cache_reset == 10

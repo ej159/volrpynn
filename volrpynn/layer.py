@@ -8,6 +8,8 @@ import numpy as np
 import volrpynn as v
 from volrpynn.util import get_pynn as pynn
 
+MATMUL_EINSUM = 'ij,kj->kj'
+
 class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
        weight-update function, based on existing spikes"""
@@ -70,6 +72,11 @@ class Layer():
         """Returns the weights as a matrix of size (input, output)"""
         return self.weights
 
+    def reset_cache(self):
+        """Resets the cached inputs and outputs for batch gradients"""
+        self.input_cache = []
+        return self
+
     def restore_weights(self):
         """Restores the current weights of the layer"""
         self.set_weights(self.get_weights())
@@ -127,6 +134,7 @@ class Dense(Layer):
         super(Dense, self).__init__(pop_in, pop_out, gradient_model, decoder)
 
         self.input = None
+        self.input_cache = []
 
         # Create a projection between the input and output populations
         if not projection:
@@ -165,30 +173,24 @@ class Dense(Layer):
         """
         assert callable(optimiser), "Optimiser must be callable"
 
-        try:
-            self.input
-        except AttributeError:
+        if len(self.input_cache) == 0:
             raise RuntimeError("No input data found. Please simulate the model" +
                                " before doing a backward pass")
             
         # Calculate activations for output layer
-        input_decoded = self.decoder(self.input)
+        input_decoded = np.array(self.input_cache)
         output_activations = np.matmul(input_decoded, self.weights)
 
-        # Calculate layer delta and weight optimisations
+        # Calculate output gradients and layer delta
         normalised_biases = self._normalise_biases(self.biases)
         output_gradients = self.gradient_model.prime(output_activations + normalised_biases)
         delta = np.multiply(error, output_gradients)
 
-        # Ensure correct multiplication of data
-        if len(input_decoded.shape) == 1:
-            weights_delta = np.outer(input_decoded, delta)
-        else:
-            weights_delta = np.matmul(input_decoded.T, delta)
-
-        # Calculate weight and bias optimisation and store
+        # Calculate layer backprop and weights, bias updates
+        backprop = np.matmul(delta, self.weights.T)
+        weights_delta = np.matmul(input_decoded.T, delta)
         (new_weights, new_biases) = optimiser(self.weights, weights_delta,
-                                              self.biases, delta)
+                                              self.biases, error.sum(axis=0))
 
         # NEST cannot handle too large weight values, so this guard
         # ensures that the simulation keeps running, despite large weights
@@ -200,7 +202,6 @@ class Dense(Layer):
         self.biases = new_biases
 
         # Return errors changes in backwards layer
-        backprop = np.matmul(delta, self.weights.T)
         return backprop
 
     def get_biases(self):
@@ -233,6 +234,7 @@ class Dense(Layer):
     def store_spikes(self):
         segments_in = self.projection.pre.get_data('spikes').segments
         self.input = np.array(segments_in[-1].spiketrains)
+        self.input_cache.append(self.decoder(self.input))
         segments_out = self.projection.post.get_data('spikes').segments
         self.output = np.array(segments_out[-1].spiketrains)
         return self
@@ -254,25 +256,44 @@ class Merge(Layer):
         if not weights:
             weights = (None, None)
 
-        self.layer1 = v.Dense(pop_in[0], pop_out, gradient_model=gradient_model,
-                              weights=weights[0], decoder=decoder)
-        self.layer2 = v.Dense(pop_in[1], pop_out, gradient_model=gradient_model,
-                              weights=weights[1], decoder=decoder)
+        self.top_size = self.pop_in[0].size
+        self.bot_size = self.pop_in[1].size
+        top_out = pynn().PopulationView(pop_out, list(range(self.top_size)))
+        bot_out = pynn().PopulationView(pop_out,
+                list(range(self.top_size,self.top_size + self.bot_size)))
+
+        connector = pynn().AllToAllConnector()
+        projection1 = pynn().Projection(pop_in[0], top_out, connector)
+        projection2 = pynn().Projection(pop_in[1], bot_out, connector)
+
+        self.layer1 = v.Dense(pop_in[0], top_out, gradient_model=gradient_model,
+                              weights=weights[0], decoder=decoder,
+                              projection=projection1)
+        self.layer2 = v.Dense(pop_in[1], bot_out, gradient_model=gradient_model,
+                              weights=weights[1], decoder=decoder,
+                              projection=projection2)
 
     def backward(self, error, optimiser):
-        l1_error = self.layer1.backward(error, optimiser)
-        l2_error = self.layer2.backward(error, optimiser)
+        top_size = self.top_size
+        top_errors = np.array([x[:top_size] for x in error])
+        bot_errors = np.array([x[top_size:] for x in error])
+        l1_error = self.layer1.backward(top_errors, optimiser)
+        l2_error = self.layer2.backward(bot_errors, optimiser)
         return (l1_error, l2_error)
 
     def get_biases(self):
         return np.concatenate((self.layer1.get_biases(), self.layer2.get_biases()))
 
     def get_output(self):
-        # Layer1 output == layer2 output, because the population is the same
-        return self.layer1.get_output()
+        spiketrains = self.pop_out.get_data().segments[0].spiketrains
+        return self.decoder(spiketrains)
 
     def get_weights(self):
         return (self.layer1.get_weights(), self.layer2.get_weights())
+
+    def reset_cache(self):
+        self.layer1.reset_cache()
+        self.layer2.reset_cache()
 
     def set_weights(self, weights):
         Layer._is_tuple(weights, "Layer weights")
@@ -334,6 +355,10 @@ class Replicate(Layer):
 
     def get_weights(self):
         return self.weights
+
+    def reset_cache(self):
+        self.layer1.reset_cache()
+        self.layer2.reset_cache()
 
     def set_weights(self, weights):
         self.weights = weights

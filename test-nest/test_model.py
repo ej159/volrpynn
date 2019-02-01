@@ -102,7 +102,7 @@ def test_nest_model_backwards_reset():
     # Second pass
     target2 = m.predict(xs2, 50)
     m.backward([1, 0], lambda w, g, b, bg: (w - g, b - bg))
-    expected_weights = np.array([[0, 0], [0, 0]])
+    expected_weights = np.array([[-1, 0], [-1, 0]])
     assert np.allclose(l1.get_weights(), expected_weights)
 
 def test_nest_model_spike_normalisation():

@@ -96,11 +96,23 @@ def test_nest_dense_backprop():
     p2 = pynn.Population(2, pynn.IF_cond_exp())
     l = v.Dense(p1, p2, v.UnitActivation(), weights = 1, decoder = lambda x: x)
     old_weights = l.get_weights()
-    l.input = np.ones((1, 4)) # Mock spikes
+    l.input_cache = np.ones((1, 4)) # Mock spikes
     errors = l.backward(np.array([[0, 1]]), lambda w, g, b, bg: (w - g, b - bg))
-    expected_errors = np.ones((4,)) - 13
+    expected_errors = np.zeros((2, 4)) + 4
     assert np.allclose(errors, expected_errors)
     expected_weights = np.tile([1, -3], (4, 1))
+    assert np.allclose(l.get_weights(), expected_weights)
+
+def test_nest_dense_batch_gradient():
+    p1 = pynn.Population(4, pynn.IF_cond_exp())
+    p2 = pynn.Population(2, pynn.IF_cond_exp())
+    l = v.Dense(p1, p2, v.UnitActivation(), weights = 1, decoder = lambda x: x)
+    old_weights = l.get_weights()
+    l.input_cache = np.ones((2, 4)) # Mock spikes
+    errors = l.backward(np.array([[0, 1], [0, 1]]), lambda w, g, b, bg: (w - g, b - bg))
+    expected_errors = np.zeros((2, 4)) + 4
+    assert np.allclose(errors, expected_errors)
+    expected_weights = np.tile([1, -7], (4, 1))
     assert np.allclose(l.get_weights(), expected_weights)
 
 def test_nest_dense_numerical_gradient():
@@ -123,9 +135,9 @@ def test_nest_dense_numerical_gradient():
 
     def forward_pass(xs):
         "Simple sigmoid forward pass function"
-        l1.input = xs
-        l1.output = l2.input = v.Sigmoid()(np.matmul(xs, l1.weights))
-        l2.output = v.Sigmoid()(np.matmul(l2.input, l2.weights))
+        l1.input_cache = xs
+        l1.output = l2.input_cache = v.Sigmoid()(np.matmul(xs, l1.weights))
+        l2.output = v.Sigmoid()(np.matmul(l2.input_cache, l2.weights))
         return l2.output
 
     def compute_numerical_gradient(xs, ys):
@@ -188,28 +200,3 @@ def test_nest_dense_numerical_gradient():
                np.linalg.norm(gradients + numerical_gradients)
     assert ratio < 1e-07
      
- 
-# def test_nest_dense_error():
-#     p1 = pynn.Population(4, pynn.IF_cond_exp())
-#     p2 = pynn.Population(3, pynn.IF_cond_exp())
-#     l = v.Dense(p1, p2, lambda x: x, decoder = lambda x: x)
-# 
-#     xs = np.array([[1.0, 2.0, 3.0, 4.0],
-#             [2.0, 3.0, 4.0, 5.0],
-#             [9.0, 10.0, 11.0, 12.0]])
-#     ws = np.array([[1.0,  2.0,  3.0,  4.0],
-#             [5.0,  6.0,  7.0,  8.0],
-#             [9.0, 10.0, 11.0, 12.0]])
-#     zs = np.multiply(ws, xs)
-#     ys = zs.sum(axis=1) # Mock identity
-#     es = np.array([[1408.0, 1624.0, 1840.0, 2056.0],
-#         [1926.0, 2220.0, 2514.0, 2808.0],
-#         [2444.0, 2816.0, 3188.0, 3560.0]])
-#     for i in range(3):
-#         l.input = xs[i]
-#         l.output = zs[i]
-#         l.set_weights(ws.T)
-#         es_a = l.backward(ys, lambda x, y: x)
-#         assert np.allclose(es[i], es_a)
-# 
-# 

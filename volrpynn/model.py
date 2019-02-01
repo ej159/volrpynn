@@ -75,7 +75,12 @@ class Model():
         layer to the input layer.
         """
         # Backprop through the layers
-        layer_error = error
+        error = np.array(error)
+        if len(error.shape) == 1:
+            layer_error = error.reshape(1, -1)
+        else:
+            layer_error = error
+
         for layer in reversed(self.layers):
             layer_error = layer.backward(layer_error, optimiser)
 
@@ -107,7 +112,12 @@ class Model():
 
         return self.simulate(time)
 
-    def reset(self):
+    def reset_cache(self):
+        """Resets all the caches in the layers"""
+        for layer in self.layers:
+            layer.reset_cache()
+
+    def reset_weights(self):
         """Resets the PyNN simulation backend and all the recorded weights and
            spiketrains"""
         pynn().reset()
@@ -130,8 +140,8 @@ class Model():
         self.inputs = normalised
 
     def simulate(self, time):
-        """Reset simulation and restore weights"""
-        self.reset()
+        """Restore weights and reset simulation"""
+        self.reset_weights()
 
         pynn().run(time)
 

@@ -114,19 +114,21 @@ be an instance of the ErrorFunction class"
                              ys[offset:offset + self.batch_size])
             error_forward = []
             error_backward = []
+
+            # Clear model cache
+            model.reset_cache()
+
             # Forward pass
             for x, target_y in batch_data:
                 output = self.test_single(model, x, target_y)
                 error_forward.append(error_function(output, target_y))
                 error_backward.append(error_function.prime(output, target_y))
 
-            error_forward_mean = np.array(error_forward).mean()
+            error_forward_mean = np.array(error_forward).sum()
             errors.append(error_forward_mean)
 
             # Backward pass
-            error_backward_mean = np.array(error_backward).mean(axis=0)
-            model.backward(error_backward_mean, optimise_weights)
-
+            model.backward(np.array(error_backward), optimise_weights)
             offset += self.batch_size
 
         return model, errors
