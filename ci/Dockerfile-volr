@@ -1,0 +1,15 @@
+##
+## Dockerfile for Volr with NEST
+##
+
+FROM volr/compiler
+
+FROM volr/nest-2.16.0:latest
+
+COPY --from=0 /root/.local/ /root/.local/
+
+EXPOSE 8888
+
+WORKDIR /volrpynn/examples
+
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--allow-root"]

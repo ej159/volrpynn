@@ -10,7 +10,7 @@ ENV PYTHONPATH="/nest-${VERSION}/lib/python2.7/site-packages/"
 ENV PYTHONIOENCODING="utf8"
 
 RUN pip3 install --no-binary :all: PyNN
-RUN pip3 install mpi4py numpy scipy matplotlib addict future lazyarray neo pytest
+RUN pip3 install mpi4py numpy scipy matplotlib addict future lazyarray neo pytest scikit-image mnist sklearn jupyter
 
 # Install volrpynn
 ADD . /volrpynn
