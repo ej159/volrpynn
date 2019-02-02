@@ -8,8 +8,6 @@ import numpy as np
 import volrpynn as v
 from volrpynn.util import get_pynn as pynn
 
-MATMUL_EINSUM = 'ij,kj->kj'
-
 class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
        weight-update function, based on existing spikes"""
@@ -219,7 +217,7 @@ class Dense(Layer):
     def _normalise_weights(self, weights):
         """Normalise the weights, such that the neuron activations are roughly
         following a linear progression"""
-        return weights * (0.06 / self.pop_in.size)
+        return weights * (0.065 / self.pop_in.size)
 
     def set_biases(self, biases):
         self.biases = biases
