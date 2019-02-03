@@ -32,7 +32,8 @@ class Optimiser():
                           output is, compared to the y labels
         
         Returns:
-        A tuple of the trained model and a list of prediction errors
+        A tuple of the trained model, a list of prediction errors and a list of
+        batch backpropagation errors
         """
         pass
 
@@ -73,7 +74,7 @@ class GradientDescentOptimiser(Optimiser):
                   the model score. Defaults to SumSquared
 
         Returns:
-        A report of the output values and accuracy for hitting the target
+        A report of the output values, accuracy for hitting the target
         """
         report = ErrorCost(SumSquared()) if report == None else report
         for x, target_y in zip(xs, ys):
@@ -108,6 +109,7 @@ be an instance of the ErrorFunction class"
             return (weights - wg, biases - bg)
 
         errors = []
+        batch_errors = []
         offset = 0
         while offset < len(xs):
             batch_data = zip(xs[offset:offset + self.batch_size], 
@@ -124,11 +126,12 @@ be an instance of the ErrorFunction class"
                 error_forward.append(error_function(output, target_y))
                 error_backward.append(error_function.prime(output, target_y))
 
-            error_forward_mean = np.array(error_forward).sum()
-            errors.append(error_forward_mean)
+            error_forward_sum = np.array(error_forward).sum()
+            errors.append(error_forward_sum)
 
             # Backward pass
-            model.backward(np.array(error_backward), optimise_weights)
+            errors_layer = model.backward(np.array(error_backward), optimise_weights)
+            batch_errors.append(errors_layer)
             offset += self.batch_size
 
-        return model, errors
+        return model, errors, batch_errors

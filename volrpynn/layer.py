@@ -12,7 +12,8 @@ class Layer():
     """A neural network layer with a PyNN-backed neural network population and a backwards
        weight-update function, based on existing spikes"""
 
-    def __init__(self, pop_in, pop_out, gradient_model, decoder=v.spike_softmax):
+    def __init__(self, pop_in, pop_out, gradient_model,
+            decoder=v.spike_count_linear):
         """
         Initialises a densely connected layer between two populations output
         Args:
@@ -20,14 +21,8 @@ class Layer():
         pop_out -- The output population
         gradient_model -- An ActivationFunction that calculates the neuron gradients
                           given the current spikes and errors from this layer
-        weights -- Either a single number, an array of weights or a generator object.
-                   Defaults all weights to a normal distribution with mean 1.0
-                   and standard deviation of 0.2
         decoder -- A function that can code a list of SpikeTrains into a numeric
                    numpy array
-        wta -- Winner-takes-all is a boolean flag to set if inhibitory
-               connections should be installed to inhibit the entire population
-               after the first spike was fired
         """
         self.pop_in = pop_in
         self.pop_out = pop_out
@@ -124,15 +119,16 @@ class Dense(Layer):
        populations."""
 
     def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
-                 biases=0, decoder=v.spike_count_normalised, projection=None):
+                 biases=0, decoder=v.spike_count_linear,
+                 translation=v.LinearTranslation(), projection=None):
         """
         Initialises a densely connected layer between two populations
-        output
         """
         super(Dense, self).__init__(pop_in, pop_out, gradient_model, decoder)
 
         self.input = None
         self.input_cache = []
+        self.translation = translation
 
         # Create a projection between the input and output populations
         if not projection:
@@ -180,8 +176,7 @@ class Dense(Layer):
         output_activations = np.matmul(input_decoded, self.weights)
 
         # Calculate output gradients and layer delta
-        normalised_biases = self._normalise_biases(self.biases)
-        output_gradients = self.gradient_model.prime(output_activations + normalised_biases)
+        output_gradients = self.gradient_model.prime(output_activations + self.biases)
         delta = np.multiply(error, output_gradients)
 
         # Calculate layer backprop and weights, bias updates
@@ -211,14 +206,6 @@ class Dense(Layer):
     def get_weights_normalised(self):
         return self.projection.get('weight', format='array')
 
-    def _normalise_biases(self, biases):
-        return biases / self.pop_in.size
-
-    def _normalise_weights(self, weights):
-        """Normalise the weights, such that the neuron activations are roughly
-        following a linear progression"""
-        return weights * (0.065 / self.pop_in.size)
-
     def set_biases(self, biases):
         self.biases = biases
 
@@ -226,7 +213,7 @@ class Dense(Layer):
         if type(weights) == int:
             weights = np.zeros((self.pop_in.size, self.pop_out.size)) + weights
         self.weights = weights
-        normalised = self._normalise_weights(weights)
+        normalised = self.translation.weights(weights, self.pop_in.size)
         self.projection.set(weight=normalised)
 
     def store_spikes(self):
@@ -244,7 +231,7 @@ class Merge(Layer):
     input populations and the output population."""
 
     def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
-                 decoder=v.spike_count_normalised):
+                 decoder=v.spike_count):
         super(Merge, self).__init__(pop_in, pop_out, gradient_model, decoder)
         Layer._is_tuple(pop_in, "Input populations")
 

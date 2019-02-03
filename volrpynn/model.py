@@ -6,33 +6,33 @@ import numpy as np
 from volrpynn.layer import Dense, Replicate
 from volrpynn.util import get_pynn as pynn
 from volrpynn.activation import ActivationFunction, ReLU
+from volrpynn.translation import Translation, LinearTranslation
+
+# Default neuron parameters for stable networks
+DEFAULT_NEURON_PARAMETERS = {
+        "tau_syn_I":5,  # Decay time for inhibitory inputs
+        "tau_syn_E":5,  # Decay time for excitatory inputs
+        "tau_refrac":0, # Refractory period
+        "tau_m":20,     # Membrane time constant
+        "v_thresh":-50, # Voltage threshold
+        "v_rest":-65,   # Resting potential
+        "v_reset":-65,  # Reset potential
+        "e_rev_I":-70,  # Reverse potential for inhibitions
+        "e_rev_E":0,    # Reverse potential for excitations
+        "i_offset":0,   # Offset (constant) input current
+        "cm":1          # Membrane capacity
+    }
 
 class Model():
     """A model of a neural network experiment"""
 
-    # These neuron parameters lead to a iaf_psc_alpha neuron that fires with a
-    # constant rate of approximately f_out = I_e / 10.0
-    FIXED_RATE_NEURON = {
-            "tau_syn_I":5,  # Decay time for inhibitory inputs
-            "tau_syn_E":5,  # Decay time for excitatory inputs
-            "tau_refrac":0, # Refractory period
-            "tau_m":20,     # Membrane time constant
-            "v_thresh":-50, # Voltage threshold
-            "v_rest":-65,   # Resting potential
-            "v_reset":-65,  # Reset potential
-            "e_rev_I":-70,  # Reverse potential for inhibitions
-            "e_rev_E":0,    # Reverse potential for excitations
-            "i_offset":0,   # Offset (constant) input current
-            "cm":1          # Membrane capacity
-        }
-
-    def __init__(self, *layers):
+    def __init__(self, *layers, translation=LinearTranslation()):
         """Instantiates the model with a PyNN implementation and a Layer description
 
         Args:
-        pop_in -- The PyNN input population
-        pop_out -- The PyNN output population
         layers -- A list of Layers build over PyNN populations
+        translation -- A method for translating the input data and weights into
+                       a spiking model
         """
         if not layers:
             raise ValueError("Layers must not be empty")
@@ -40,22 +40,30 @@ class Model():
         if not isinstance(layers[0], (Dense, Replicate)):
             raise ValueError("First layer must be a Dense or Replicate layer")
 
+        if not isinstance(translation, Translation):
+            raise ValueError("Translation scheme must be a Translation")
+
         # Assign populations and layers
         self.node_input = layers[0].pop_in
         self.layers = layers
+        self.translation = translation
 
         # Create input Poisson sources
         self.input_populations = []
         input_size = self.node_input.size
         for _ in range(input_size):
-            population = pynn().Population(1, pynn().IF_cond_exp(**self.FIXED_RATE_NEURON))
+            population = pynn().Population(1,
+                    pynn().IF_cond_exp(**DEFAULT_NEURON_PARAMETERS))
             self.input_populations.append(population)
 
         self.input_assembly = pynn().Assembly(*self.input_populations)
 
+        # Calculate the input weights, but with only 1 input neuron because of
+        # the 1:1 connector
+        input_weights = self.translation.weights(1, 1)
         self.input_projection = pynn().Projection(self.input_assembly,
                                                   self.node_input, pynn().OneToOneConnector(),
-                                                  pynn().StaticSynapse(weight=1.0))
+                                                  pynn().StaticSynapse(weight=input_weights))
 
     def backward(self, error, optimiser):
         """Performs a backwards pass through the model *without* executing the
@@ -86,30 +94,17 @@ class Model():
 
         return layer_error
 
-    def _normalise_data(self, data):
-        """Normalises the data according to a linear model for spiking neuron
-        activation, where f(x) = 3.225x - 1.613"""
-        # Normalise the data to [1;40]
-        copy = data.copy().astype(np.float64)
-        copy /= max(1, data.max())
-        copy *= 39
-        copy += 1
-        # Scale the data linearly
-        return (copy + 1.61295370014) / 3.22500557
-
-    def predict(self, rates, time):
+    def predict(self, data, time):
         """Predicts an output by simulating the model with the given input
 
         Args:
-            rates -- A list of Poisson rates, with the same dimension as the
-                     input layer
+            data -- A list of inputs
             time -- The number of time to run the simulation in milliseconds
 
         Returns:
-            An array of neo.core.SpikeTrains from the output layer
+            An array of decoded values from the layers
         """
-        self.set_input(rates)
-
+        self.set_input(data)
         return self.simulate(time)
 
     def reset_cache(self):
@@ -134,10 +129,9 @@ class Model():
         assert len(data) == len(self.input_populations),\
                 "Input dimension ({}) must match input node size ({})"\
                   .format(len(data), len(self.input_populations))
-        normalised = self._normalise_data(np.array(data))
-        for index, x in enumerate(normalised):
+        for index, x in enumerate(data):
             self.input_populations[index].set(i_offset=x)
-        self.inputs = normalised
+        self.inputs = data
 
     def simulate(self, time):
         """Restore weights and reset simulation"""

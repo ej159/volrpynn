@@ -1,6 +1,9 @@
 """A module for spike related functions"""
 
 import numpy as np
+from volrpynn import translation
+
+LINEAR_TRANSLATION = translation.LinearTranslation()
 
 def spike_count(spiketrains):
     """Counts the number of spikes in an array of SpikeTrains"""
@@ -18,6 +21,9 @@ def spike_rate(simulation_time):
     def spiketrains_rate(trains):
         return np.array(list(map(lambda t: len(t) / simulation_time, trains)))
     return spiketrains_rate
+
+def spike_count_linear(spiketrains):
+    return LINEAR_TRANSLATION.from_spikes(spike_count(spiketrains))
 
 def spike_softmax(spiketrains):
     """Finds the softmax of a list of spiketrains by counting the spike rate

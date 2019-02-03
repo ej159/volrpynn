@@ -7,17 +7,20 @@ class Main():
     """A runtime class that accepts a model and exposes a 'train' method
        to train that model with a given optimiser, given data via std in"""
 
-    def __init__(self, model, parameter_file=None):
+    def __init__(self, model, parameter_file=None,
+            translation=v.LinearTranslation()):
         self.model = model
         if parameter_file:
             self._load_parameter_file(parameter_file)
+        if not isinstance(translation, v.Translation):
+            raise ValueError('Translator must be a Translation')
+        self.translation = translation
 
     def _load_parameter_file(self, file_name):
         parameters = np.load(file_name)
         for index in range(len(self.model.layers) - 1):
             layer = self.model.layers[index]
             weights, biases = parameters[:2]
-            sys.stderr.write("S" + str(weights.shape) + " " + str(biases.shape))
             layer.biases = biases
             layer.set_weights(weights)
             # Continue with next element in tuple
@@ -56,13 +59,17 @@ class Main():
             xs = np.array(json.loads(xs))
             ys = np.array(json.loads(ys))
 
+        # Normalise data
+        xs = self.translation.to_current(xs)
+
+        # Split training/testing
         split = int(len(xs) * split)
         x_train = xs[:split]
         y_train = ys[:split]
         x_test = xs[split:]
         y_test = ys[split:]
         assert len(x_train) > 0 and len(x_test) > 0, "Must have at least 5 data points"
-        _, errors = optimiser.train(self.model, x_train, y_train, v.SoftmaxCrossEntropy())
+        _, errors, _ = optimiser.train(self.model, x_train, y_train, v.SoftmaxCrossEntropy())
         report = optimiser.test(self.model, x_test, y_test, v.ErrorCostCategorical())
         reportDict = report.toDict()
         reportDict['train_errors'] = errors # Include training errors

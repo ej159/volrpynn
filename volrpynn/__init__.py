@@ -22,6 +22,8 @@ from . import error
 from .error import *
 from . import spike
 from .report import *
+from . import translation
+from .translation import *
 from .spike import *
 from . import optimise
 from .optimise import *
