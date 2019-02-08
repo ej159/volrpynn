@@ -1,7 +1,2 @@
-addict
-lazyarray
-neo
 pyNN
-nose
-tkinter
 torch
