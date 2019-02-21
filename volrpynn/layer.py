@@ -227,8 +227,8 @@ class Dense(Layer):
 class Merge(Layer):
     """A merge layer that takes a tuple of input layers and
     uniforms them into a single output population by connecting them densely.
-    In practice this happens by creating two dense layers between the two
-    input populations and the output population."""
+    In practice this happens by simply forwarding the spikes to another 
+    population view. No data processing is done in this layer."""
 
     def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
                  decoder=v.spike_count):
@@ -243,51 +243,37 @@ class Merge(Layer):
 
         self.top_size = self.pop_in[0].size
         self.bot_size = self.pop_in[1].size
-        top_out = pynn().PopulationView(pop_out, list(range(self.top_size)))
-        bot_out = pynn().PopulationView(pop_out,
-                list(range(self.top_size,self.top_size + self.bot_size)))
 
-        connector = pynn().AllToAllConnector()
-        projection1 = pynn().Projection(pop_in[0], top_out, connector)
-        projection2 = pynn().Projection(pop_in[1], bot_out, connector)
-
-        self.layer1 = v.Dense(pop_in[0], top_out, gradient_model=gradient_model,
-                              weights=weights[0], decoder=decoder,
-                              projection=projection1)
-        self.layer2 = v.Dense(pop_in[1], bot_out, gradient_model=gradient_model,
-                              weights=weights[1], decoder=decoder,
-                              projection=projection2)
+        assembly = pynn().Assembly(pop_in[0], pop_out[1])
+        connector = pynn().AllToAllConnector(allow_self_connections=False)
+        projection1 = pynn().Projection(assembly, pop_out, connector)
 
     def backward(self, error, optimiser):
         top_size = self.top_size
         top_errors = np.array([x[:top_size] for x in error])
         bot_errors = np.array([x[top_size:] for x in error])
-        l1_error = self.layer1.backward(top_errors, optimiser)
-        l2_error = self.layer2.backward(bot_errors, optimiser)
         return (l1_error, l2_error)
 
     def get_biases(self):
-        return np.concatenate((self.layer1.get_biases(), self.layer2.get_biases()))
-
-    def get_output(self):
-        spiketrains = self.pop_out.get_data().segments[0].spiketrains
-        return self.decoder(spiketrains)
+        return np.zeros((self.pop_out.size))
 
     def get_weights(self):
-        return (self.layer1.get_weights(), self.layer2.get_weights())
+        return (None, None)
 
-    def reset_cache(self):
-        self.layer1.reset_cache()
-        self.layer2.reset_cache()
+    def set_biases(self, biases):
+        return biases
 
     def set_weights(self, weights):
-        Layer._is_tuple(weights, "Layer weights")
-        self.layer1.set_weights(weights[0])
-        self.layer2.set_weights(weights[1])
+        return self.weights
+
+    def reset_cache(self):
+        pass
+
+    def set_weights(self, weights):
+        pass
 
     def store_spikes(self):
-        self.layer1.store_spikes()
-        self.layer2.store_spikes()
+        pass
 
 class Replicate(Layer):
     """A replicate layer that takes a single population and copies the outputs
@@ -295,7 +281,7 @@ class Replicate(Layer):
     layers between the input population and the output populations."""
 
     def __init__(self, pop_in, pop_out, gradient_model=v.ReLU(), weights=None,
-                 decoder=v.spike_count_normalised):
+                 biases=0, decoder=v.spike_count_normalised):
         super(Replicate, self).__init__(pop_in, pop_out, gradient_model, decoder)
         Layer._is_tuple(pop_out, "Output populations")
         Layer._is_tuple(weights, "Replicate layer weights", allow_none=True)
@@ -311,9 +297,11 @@ class Replicate(Layer):
         self.layer1 = v.Dense(pop_in, self.pop_out[0],
                               gradient_model=gradient_model,
                               weights=1, # Reset later
+                              biases=biases,
                               decoder=decoder, projection=projection1)
         self.layer2 = v.Dense(pop_in, self.pop_out[1],
                               gradient_model=gradient_model,
+                              biases=biases,
                               weights=1, # Reset later
                               decoder=decoder, projection=projection2)
 
