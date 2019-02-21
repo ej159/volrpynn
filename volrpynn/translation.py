@@ -22,15 +22,11 @@ class LinearTranslation(Translation):
     activation, where f(x) = 3.225x - 1.613"""
 
     alpha = 3.22500557
-    #beta = 1.61295370014
-    MAX_ACTIVATION = 12 * alpha
+    beta = 1.61295370014
 
     def from_spikes(self, data):
         copy = data.copy()
-        # Christian: I removed the addition term. 
-        #copy = (copy + self.beta) / self.MAX_ACTIVATION
-        copy = copy / self.MAX_ACTIVATION
-        #copy = copy / 6 - 1
+        copy = (copy + self.beta) / self.alpha
         return copy
         
     def to_current(self, data):
@@ -46,4 +42,13 @@ class LinearTranslation(Translation):
     def weights(self, weights, input_neurons):
         """Normalise the weights, such that the neuron activations are roughly
         following a linear progression"""
-        return weights * (0.065 / input_neurons)
+        if isinstance(weights, np.ndarray):
+            least = weights.min()
+            largest = weights.max()
+            # Crop the weights to the interval [0;1] to get variable activation levels
+            if least < 0:
+                weights -= least
+            if largest > 0:
+                weights /= largest
+
+        return (weights) * (0.065 / input_neurons)
